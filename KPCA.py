@@ -158,7 +158,7 @@ def plot_KPCA_sigmoid(data):
   plt.suptitle("KPCA-sigmoid")
   plt.show()
   
-  plot_KPCA_rbf(data=load_data())# be careful to choose y, because if y is big, lots of output values would be 1 and make the kernel matrix not invertible
+  plot_KPCA_sigmoid(data=load_data())# be careful to choose y, because if y is big, lots of output values would be 1 and make the kernel matrix not invertible
   
 
   

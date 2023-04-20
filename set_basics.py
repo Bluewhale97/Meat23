@@ -34,7 +34,7 @@ thisset.remove(1)
 thisset.discard('a')
 # or use pop
 thisset = {1,'a'}
-thisset.pop()# pop out the last one
+thisset.pop()# pop out random one
 thisset
 
 # clear() can clear all the items in the set

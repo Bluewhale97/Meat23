@@ -152,3 +152,16 @@ dir(pd)
 
 #import a part of funcs/vars from a module
 #import funcs from pandas 
+
+
+#datetime
+#datetime is not a datatype in python but a module named datetime can work with dates objects
+import datetime
+x=datetime.datetime.now()
+x#684042 is the microseconds
+
+#you can use datetime() class
+a=datetime.datetime(2020,5,17)
+
+#use strftime() method to format date objects into readable strings, only on erequired param
+a.strftime("%B%D")

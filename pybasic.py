@@ -97,3 +97,37 @@ txt.format(like2,age,like1)
 
 # boolean
 bool()
+
+
+
+
+#DBTITLE 1, Range function
+#range()#start from 0 and increment by 1
+range(2,30,3)#start, end, increment by 3, this is a range object you need to put it in to an iterable, like list
+list(range(2,30,3))
+
+#array
+#array is a built-in type but restricted to only contain same type elements, some people think array data structtype is not "native" in py, however we can use list method for array
+#1. create an array
+cars=['ford','volvo','bmw']
+type(cars)
+#2. asses elements in array
+cars[1]
+#3. length of an array
+len(cars)
+#4. looping
+for x in cars:
+  print(cars)
+#5. adding
+cars.append("Honda")
+#6. removing
+cars.pop(2)
+cars
+#or use remove
+cars.remove("ford")
+cars
+
+# you can apply any list methods for arrays
+
+
+

@@ -131,3 +131,24 @@ cars
 
 
 
+#module
+# module is the code library, a file containing a set of functions
+#to create a module
+#just save the code in a file with a file extension .py
+
+#to use a module
+import pandas as pd
+#to use a function in a module
+#pd.function_name()
+
+#modules can contain functions as well as all types of vars
+#so you can get access to a dict from a module like
+#a=pd.person
+
+#you can rename your module by using 'as'
+
+#list all the funcs in a module
+dir(pd)
+
+#import a part of funcs/vars from a module
+#import funcs from pandas 

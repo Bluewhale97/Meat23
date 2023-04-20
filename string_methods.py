@@ -97,3 +97,31 @@ table = str.maketrans("a",'b',"c")
 'ad23*"'.upper() # convert a string to upper, symbols and numbers are ignored
 
 "aer  ".zfill(10) #zfill(len), fill the string a specified number of 0 values at the begining. len is desired length of the string, and if len is less than the len of original str, it will just return the original str
+
+
+# Other string formattings
+#string format
+txt ='my name is {}'
+txt.format(3)
+
+# place two decimals
+txt="the price is {:.2f}"
+txt.format(32.13214)
+
+# multiple values
+txt="today i am felling {1}, the price of this cloth is about {0}"
+txt.format(31,'good')
+
+# index values
+txt="the price is {0:.2f}"
+txt.format(32.1244, 'good')
+
+#refer to same value
+txt="the price of this is {1}, that is {1}, the another one is {0}"
+txt.format(32,124)
+
+# named indexes
+txt="the price of this is {firstprice}, the another one is {secondprice}"
+firstprice=32
+secondprice=231
+txt.format(firstprice=firstprice, secondprice=secondprice)

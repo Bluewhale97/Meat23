@@ -1,0 +1,149 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.model_selection import train_test_split
+
+# Titanic dataset
+data = pd.read_csv('https://www.openml.org/data/get_csv/16826755/phpMYEkMl')
+
+# Replace question mark by NaN.
+
+data = data.replace('?', np.nan)
+# Extract the first letter from the variable
+# cabin.
+
+def get_first_cabin(row):
+    try:
+        return row.split()[0]
+    except:
+        return np.nan
+    
+data['cabin'] = data['cabin'].apply(get_first_cabin)
+# Save data.
+
+data.to_csv('../titanic.csv', index=False)
+
+data = pd.read_csv('../titanic.csv')
+
+# 1. Mean/Median Imputation
+
+
+# 2. Scenario
+# For numeric features and the feature should be missing completely at random
+# if the feature is normally distributed, use mean because the mean, median, mode are approximately the same, otherwise median which represents the majority of the values in the variable
+
+# 3. Pros
+# fast and common
+
+# 4. Cons
+# Distortion of the original distribution if missing is large
+# Distortion of the variance of the feature, undereastimate the variance(imagine you get more central values)
+# Covaraince with other features, change the intrinsic correlations
+# Imputing missing values lower the proportion of some value occurrences then it could be picked up as outliers sometimes
+
+# 5. When using
+# missing completely at random, but actually sometimes data is not MCAR and the fraction of missing values is large, this tech is still used, because of the simplicity
+# No more than 5% of the varaible contains missing data
+
+
+# 6. How to drive a complete process on imputation using this technique
+
+# a. look at the fraction of NA or the sum of NA on each feature
+data.isnull().mean() # age, fare, cabin, boat, body, home.dest have missing values
+# data.isnull().sum()
+
+# b. train_test_split, then use the mean/median of the training data to impute vlaues both in tranining data and test data, we are not using whole dataset to avoid overfitting
+X_train, X_test, y_train, y_test = train_test_split(data[['age','fare']], data['survived'], test_size=.3, random_state=0)
+
+# fill up NA with mean/dedian depending on the distribution of features
+
+X_train.hist(bins=50, figsize=(10,10))
+
+# median = round(X_train['age'].median(),1)
+X_train['age_mnfld'] = X_train['age'].fillna(round(X_train['age'].mean(),1))#how many decimals depends on your data's precision
+X_test['age_mnfld'] = X_test['age'].fillna(round(X_train['age'].mean(),1))
+
+# c. testing the relationship of features after imputation and the variance and the outliers
+# first the variance
+print('orginal var', X_train['age'].var())
+print('after mean inputation', X_train['age_mnfld'].var())# age has ~20% missing, it is high and underestimate the mean after the inputation
+# do a plot
+fig = plt.figure()
+ax = fig.add_subplot(111)
+X_train.age.plot(kind='kde',ax=ax, color='blue')
+X_train.age_mnfld.plot(kind='kde',ax=ax,color='red')
+# add legends
+lines, labels = ax.get_legend_handles_labels()
+ax.legend(lines, labels, loc='best')
+# imputation might affect the relationship with the target, that is important for linear models
+
+
+# second the corvariance
+X_train[['fare','age','age_mnfld']].cov()# changed
+
+# thrid the outliers
+X_train[['age','age_mnfld']].boxplot()# got more outliers in higher bond and lower bond
+
+# 7. impute mean/median together on your dataset in pandas dataframe
+# after understanding the dataset, get features that need to impute
+vars_to_impute = [var for var in data.columns if data[var].isnull().sum() > 0]
+
+# check the distribution of the variables, to know either use mean or median
+data[vars_to_impute].hist(bins=50)
+
+# capture mean/median of the variables in a dictionary
+imputation_dict = X_train[vars_to_impute].median().to_dict()
+imputation_dict
+
+# then replace missing data
+X_train.fillna(imputation_dict, inplace=True)
+X_test.fillna(imputatio_dict, inplace=True)
+
+# 8. using sklearn imputer to do imputation
+X_train, X_test, y_train, y_test = train_test_split(data[['age','fare']], data['survived'], test_size=.3, random_state=0)
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+
+# first, make a imputer, before it, you need to check the distribution of some variables for whether should we use mean or median
+# data.hist(bins=50, figsize=(10,10))
+
+#after that, make imputers
+imputer = SimpleImputer(strategy='median')
+# fit the data with your imputers
+imputer.fit(X_train)
+
+# check statistics_
+imputer.statistics_
+
+
+# transform it to X_train and X_test
+X_train = imputer.transform(X_train)
+X_test = imputer.transform(X_test)
+
+# now, X_train and X_test are ndarray, convert them back to dataframe
+X_train = pd.DataFrame(X_train, columns=imputer.get_feature_names_out(),)
+X_train
+
+X_test = pd.DataFrame(X_test, columns=imputer.get_feature_names_out(),)
+X_test
+
+
+# 9. Method in pipelining
+# assume you know how to impute your features, using median/mean
+
+# first step, make imputers
+imputer = ColumnTransformer(
+  transfromers = [
+    ('mean_imputer', SimpleImputer(strategy='mean'), ['col2']),
+    ('median_imputer', SimpleImputer(strategy='median'), ['col1',['col3']]),
+  ],
+  remainder='passthrough',
+).set_output(transform='pandas')
+# add a remainder = True to indicate that what we want, all the columns returned at the end of the transformation
+
+# explore a bit about your transformers
+imputer.named_transformers_['mean_imputer'].statistics_
+
+# second step, make transforms
+X_train = imputer.transform(X_train)
+X_test = imputer.transforms(X_test)

@@ -1,0 +1,64 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+data = pd.read_csv('../loan.csv')
+
+# 1. Numeric data types
+
+# 1.1. continuous variables
+data['disbursed_amount'].unique()
+
+fig = data['disbursed_amount'].hist(bins=10)
+fig.set_title('requested loan amount')
+fig.set_xlabel('loan amount')
+fig.set_ylabel('number of loans')
+# continuous vairable varies across the entire value range
+
+
+# 1.2. discrete variable
+data['number_open_accounts'].unique()
+
+fig = data['number_open_accounts'].hist(bins=100)
+fig.set_title('open accounts')
+fig.set_xlabel('# accounts')
+fig.set_ylabel('#')
+# typical broken form showed in the histogram of discrete variables
+
+
+# 1.3 Binary
+data['target'].unique()
+
+fig = data['target'].hist(bins=10)
+fig.set_title('target')
+fig.set_xlabel('target_name')
+fig.set_ylabel('# of target')
+
+
+# 2. Categorical variables, can be either ordinal(like student grade A,B,C), nominal(like car color) 
+data['householder'].unique()
+
+fig = data['householder'].value_counts().plot.bar()
+fig.set_title('householder')
+
+
+# 3. date/time variable
+data[['date_issued','date_last_payment']].dtypes
+# both of them are objects, if using pandas, it will be treated as strings
+data['date_issued']=pd.to_datetime(data['date_issued'])
+data['date_last_payment']=pd.to_datetime(data['date_last_payment'])
+
+data['month']=data['date_issued'].dt.month
+data['year'] = data['date_issued'].dt.year
+
+fig = data.groupby(['year','month','market'])['disbursed_amount'].sum().unstack('market').plot(figsize=(14,8), linewidth=2)
+
+fig.set_title('Disbursed amount in time')
+fig.set_ylabel('Disbursed Amount')
+
+
+# 4. mixed variables
+# data = pd.read_csv('../sample_s2.csv')
+
+data.open_il_24m.unique()
+
+fig = data.open_il_24m.value_counts().plot.bar()

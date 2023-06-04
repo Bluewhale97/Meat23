@@ -1,0 +1,164 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.model_selection import train_test_split
+
+# Titanic dataset
+data = pd.read_csv('https://www.openml.org/data/get_csv/16826755/phpMYEkMl')
+
+# Replace question mark by NaN.
+
+data = data.replace('?', np.nan)
+# Extract the first letter from the variable
+# cabin.
+
+def get_first_cabin(row):
+    try:
+        return row.split()[0]
+    except:
+        return np.nan
+    
+data['cabin'] = data['cabin'].apply(get_first_cabin)
+# Save data.
+
+data.to_csv('../titanic.csv', index=False)
+
+data = pd.read_csv('../titanic.csv')
+
+
+# 1. Arbitrary value imputation
+
+
+# 2. Scenario
+# Both categorical and numerical variables could be imputed with arbitrary values
+# for categorical variables, this is the equivalent of adding a new label
+# the assumpution is that data is not missing at random which means data is missing because of the outcome variable 
+
+# 3. Pros
+# fast 
+# highlights missing observations
+
+# 4. Cons
+# Distortion of the original distribution if missing is large
+# Distortion of the variance of the feature, undereastimate the variance(imagine you get more central values)
+# Covaraince with other features, change the intrinsic correlations
+# Imputing missing values lower the proportion of some value occurrences then it could be picked up as outliers sometimes
+# should be careful to choose an arbitrary value too similar to the mean or median
+
+# 5. When using
+# missing not at random
+# generally choosing 0, 999, -999(9s combinations), -1(positive distribution)
+
+
+# 6. How to drive a complete process on arbitrary imputation
+
+# a. know if it is missing not at random, group by the target variable
+data['age'].isnull().groupby(data['survived']).mean() # it looks like it is not missing at random, because you see the difference here
+
+# fig = data.groupby(['survived'])['age'].mean().hist(figsize=(14,8), linewidth=2)#when just survived grouped
+# fig.set_title('age')
+# fig.set_ylabel('')
+
+fig = data.groupby(['sex','survived'])['age'].mean().unstack().plot(kind='hist',figsize=(14,8), linewidth=2)#when just survived grouped
+fig.set_title('age')
+fig.set_ylabel('')
+
+# b. impute arbitrary values
+# here -1, because age could not be -1
+X_train['age_minus1'] = X_train['age'].fillna(-1)
+X_test['age_minus1'] = X_test['age'].fillna(-1)
+
+# c. check the variance
+print("Original variable variance: ", X_train["age"].var())
+print("Variance after -1 imputation: ", X_train["age_minus1"].var())
+# by plot
+fig = plt.figure()
+ax = fig.add_subplot(111)
+X_test['age'].plot(kind='kde', ax=ax)
+X_train['age_minus1'].plot(kind='kde', ax=ax, color='blue')
+lines, labels = ax.get_legend_handles_labels()
+ax.legend(lines, labels, loc="best")#now you see the distributions are distorted
+
+# d. check the cov
+X_train[["fare", "age", "age_minus1"]].cov()#changed as well
+
+# e. check the outliers
+X_train[["fare", "age", "age_minus1"]].boxplot()#We can see that adding values at the end of the distribution mask entirely values that were outliers in the original distribution.
+
+
+# 7. impute arbitrary values together on your dataset in pandas dataframe
+# after understanding the dataset, and knowing their are not missing at random, makes dict of impuatation variables and their values to impute
+imputation_dict = {
+    "LotFrontage": 999,
+    "MasVnrArea": 1999,
+    "GarageYrBlt": 2999,
+}
+
+# then replace missing data
+X_train.fillna(imputation_dict, inplace=True)
+X_test.fillna(imputatio_dict, inplace=True)
+
+# 8. using sklearn imputer to do imputation
+X_train, X_test, y_train, y_test = train_test_split(data[['age','fare']], data['survived'], test_size=.3, random_state=0)
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+
+# first, make a imputer, before it, you need to check the distribution of them and know if they are not missing at random
+# data.hist(bins=50, figsize=(10,10))
+
+#after that, make imputers
+imputer = SimpleImputer(strategy='constant', fill_value=999)
+# fit the data with your imputers
+imputer.fit(X_train)
+
+# check statistics_
+imputer.statistics_
+
+
+# transform it to X_train and X_test
+X_train = imputer.transform(X_train)
+X_test = imputer.transform(X_test)
+
+# now, X_train and X_test are ndarray, convert them back to dataframe
+X_train = pd.DataFrame(X_train, columns=imputer.get_feature_names_out(),)
+X_train
+
+X_test = pd.DataFrame(X_test, columns=imputer.get_feature_names_out(),)
+X_test
+
+
+# 9. Method in pipelining
+# assume you know how to impute your features, using median/mean
+
+# first step, make imputers
+imputer = ColumnTransformer(
+    transformers=[
+        (
+            "imputer_LotFrontAge",
+            SimpleImputer(strategy="constant", fill_value=999),
+            ["LotFrontage"],
+        ),
+        (
+            "imputer_MasVnrArea",
+            SimpleImputer(strategy="constant", fill_value=-10),
+            ["MasVnrArea"],
+        ),
+        (
+            "imputer_GarageYrBlt",
+            SimpleImputer(strategy="constant", fill_value=1700),
+            ["GarageYrBlt"],
+        ),
+    ],
+    remainder="drop",
+).set_output(transform='pandas')
+#'drop' means only retain the transformed features
+
+# explore a bit about your transformers
+imputer.named_transformers_['imputer_GarageYrBlt'].statistics_
+
+# second step, make transforms
+X_train = imputer.transform(X_train)
+X_test = imputer.transforms(X_test)
+
+
+

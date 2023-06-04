@@ -1,0 +1,17 @@
+# 1. Feature Engineering Basics
+
+# using domain knowledge of the data to create features or variables to use in ML
+# pivotal: fundamental to make algos work, key to improve ML model performance and time consuming
+
+# 2. Variable types
+
+# variable - numeric could be either discrete or continuous
+# variable - categorical could be either nominal, ordinal or date/time
+
+# 3. General process of feature engineering
+# missing data
+# categorical var encoding
+# linear model assumtions: to fulfill assumptions
+# distribution: normal, skewed or others
+# outliers: unusual and unexpected values
+# feature mangnitude: scaling

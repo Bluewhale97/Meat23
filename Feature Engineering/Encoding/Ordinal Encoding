@@ -1,0 +1,75 @@
+# 1. Ordinal Encoding 
+
+# 2. scenario
+# Ordinal encoding is better suited for non-linear methods which are able to navigate through the arbitrarily assigned digits to try and find patters that relate them to the target.
+
+# 3. pros
+# straightforward
+# not expand the feature space
+
+# 4. cons
+# does not capture any information about the categories labels
+# not suitable for linear models
+
+# 5. how to work it
+# first let's create a dictionary with the mappings of categories to numbers
+
+ordinal_mapping = {k: i for i, k in enumerate(X_train["Neighborhood"].unique(), 0)}
+
+ordinal_mapping
+
+# replace the labels with the integers
+
+X_train["Neighborhood"] = X_train["Neighborhood"].map(ordinal_mapping)
+X_test["Neighborhood"] = X_test["Neighborhood"].map(ordinal_mapping)
+
+# we can turn the previous commands into 2 functions
+
+
+def find_category_mappings(df, variable):
+    return {k: i for i, k in enumerate(df[variable].unique(), 0)}
+
+
+def integer_encode(train, test, variable, ordinal_mapping):
+
+    X_train[variable] = X_train[variable].map(ordinal_mapping)
+    X_test[variable] = X_test[variable].map(ordinal_mapping)
+
+# and now we run a loop over the remaining categorical variables
+
+for variable in ["Exterior1st", "Exterior2nd"]:
+    mappings = find_category_mappings(X_train, variable)
+    integer_encode(X_train, X_test, variable, mappings)
+
+# 6. work it on sklearn
+# let's find the categorical variables
+
+cat_vars = list(X_train.select_dtypes(include="O").columns)
+cat_vars
+
+# let's set up the encoder
+
+encoder = OrdinalEncoder()
+
+# let's set up the column transformer
+
+ct = ColumnTransformer(
+    [("oe", encoder, cat_vars)],
+    remainder="passthrough",
+)
+
+ct.set_output(transform="pandas")
+
+# train the encoder
+
+ct.fit(X_train)
+
+# the categories that will be encoded in each variable
+
+ct.named_transformers_["oe"].categories_
+
+# transform data
+X_train_enc = ct.transform(X_train)
+X_test_enc = ct.transform(X_test)
+
+X_train_enc.head()

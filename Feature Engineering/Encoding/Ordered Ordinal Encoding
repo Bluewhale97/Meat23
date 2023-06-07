@@ -1,0 +1,134 @@
+# 1. Ordered ordinal encoding
+
+# 2. scenario
+# The assumption of this technique is that the number observations shown by each variable is somewhat informative of the predictive power of the category.
+# it is available when the target is numeric, because we need to use the mean of each group and order them and give the rank.
+
+# 3. pros
+# quick
+# returns pandas dataframe
+
+# 4. cons
+# it does not preserve information from train data to propagate to test data
+# cause overfitting
+
+# 5. how to work it
+# let's order the labels according to the mean target value
+
+y_train.groupby(X_train["Neighborhood"]).mean().sort_values()
+
+# first  we generate an ordered list with the labels
+
+ordered_labels = y_train.groupby(X_train["Neighborhood"]).mean().sort_values().index
+
+ordered_labels
+
+# next let's create a dictionary with the mappings of categories to numbers
+
+ordinal_mapping = {k: i for i, k in enumerate(ordered_labels, 0)}
+
+ordinal_mapping
+
+# now, we replace the labels with the integers
+
+X_train["Neighborhood"] = X_train["Neighborhood"].map(ordinal_mapping)
+X_test["Neighborhood"] = X_test["Neighborhood"].map(ordinal_mapping)
+
+
+# let's explore the result
+
+X_train["Neighborhood"].head(10)
+
+# we can turn the previous commands into 2 functions
+
+
+def find_category_mappings(df, variable, target):
+
+    # first  we generate an ordered list with the labels
+    ordered_labels = target.groupby(df[variable]).mean().sort_values().index
+
+    # return the dictionary with mappings
+    return {k: i for i, k in enumerate(ordered_labels, 0)}
+
+
+def integer_encode(train, test, variable, ordinal_mapping):
+
+    train[variable] = train[variable].map(ordinal_mapping)
+    test[variable] = test[variable].map(ordinal_mapping)
+
+# and now we run a loop over the remaining categorical variables
+
+for variable in ["Exterior1st", "Exterior2nd"]:
+
+    mappings = find_category_mappings(X_train, variable, y_train)
+
+    integer_encode(X_train, X_test, variable, mappings)
+
+# let's inspect the newly created monotonic relationship
+# between the variables and the target
+
+for var in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
+
+    fig = plt.figure()
+    fig = y_train.groupby(X_train[var]).mean().plot()
+    fig.set_title("Monotonic relationship between {} and SalePrice".format(var))
+    fig.set_ylabel("Mean SalePrice")
+    plt.show()
+
+
+
+# check the relationship in test dataset
+# between the variables and the target
+
+for var in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
+
+    fig = plt.figure()
+    fig = y_test.groupby(X_test[var]).mean().plot()
+    fig.set_title("Monotonic relationship between {} and SalePrice".format(var))
+    fig.set_ylabel("Mean SalePrice")
+    plt.show()
+# The monotonicity in the test set is somewhat lost, which means that this encoding method may cause over-fitting when training a model.
+
+
+# 6. work it on feature engine
+ordinal_enc = OrdinalEncoder(
+    # NOTE that we indicate ordered in the encoding_method, otherwise it assings numbers arbitrarily
+    encoding_method="ordered",
+    variables=["Neighborhood", "Exterior1st", "Exterior2nd"],
+)
+# when fitting the transformer, we need to pass the target as well
+# just like with any Scikit-learn predictor class
+
+ordinal_enc.fit(X_train, y_train)
+# in the encoder dict we can observe the number of
+# in the encoder dict we can observe each of the top categories
+# selected for each of the variables
+X_train = ordinal_enc.transform(X_train)
+X_test = ordinal_enc.transform(X_test)
+
+# let's explore the result
+X_train.head()
+
+
+# let's inspect the newly created monotonic relationship
+# between the variables and the target
+
+for var in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
+
+    fig = plt.figure()
+    fig = y_train.groupby(X_train[var]).mean().plot()
+    fig.set_title("Monotonic relationship between {} and SalePrice".format(var))
+    fig.set_ylabel("Mean SalePrice")
+    plt.show()
+
+
+# let's inspect the newly created monotonic relationship
+# between the variables and the target
+
+for var in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
+
+    fig = plt.figure()
+    fig = y_test.groupby(X_test[var]).mean().plot()
+    fig.set_title("Monotonic relationship between {} and SalePrice".format(var))
+    fig.set_ylabel("Mean SalePrice")
+    plt.show()

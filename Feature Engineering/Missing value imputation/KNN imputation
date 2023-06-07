@@ -1,0 +1,82 @@
+# 1. KNN imputation
+
+# 2. Characteristics
+# same k will be used to impute all variables
+# cannot really optimize k to better predict the missing values
+# could optimize k to predict the target
+
+# find the variable with missing data
+for var in data.columns:
+    if data[var].isnull().sum() > 1:
+        print(var, data[var].isnull().sum())
+
+# 3. impute
+imputer = KNNImputer(
+    n_neighbors=5, # the number of neighbours K
+    weights='distance', # the weighting factor
+    metric='nan_euclidean', # the metric to find the neighbours
+    add_indicator=False, # whether to add a missing indicator
+)
+
+train_t = imputer.transform(X_train)
+test_t = imputer.transform(X_test)
+
+# sklearn returns a Numpy array
+# lets make a dataframe
+train_t = pd.DataFrame(train_t, columns=X_train.columns)
+test_t = pd.DataFrame(test_t, columns=X_test.columns)
+
+train_t.head()
+
+# 4. automatically find best imputation parameters
+# import extra classes for modelling
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Lasso
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+
+# separate intro train and test set
+
+X_train, X_test, y_train, y_test = train_test_split(
+    data[cols_to_use],  # just the features
+    data['SalePrice'],  # the target
+    test_size=0.3,  # the percentage of obs in the test set
+    random_state=0)  # for reproducibility
+
+X_train.shape, X_test.shape
+
+pipe = Pipeline(steps=[
+    ('imputer', KNNImputer(
+        n_neighbors=5,
+        weights='distance',
+        add_indicator=False)),
+    
+    ('scaler', StandardScaler()),
+    ('regressor', Lasso(max_iter=2000)),
+])
+
+# now we create the grid with all the parameters that we would like to test
+
+param_grid = {
+    'imputer__n_neighbors': [3,5,10],
+    'imputer__weights': ['uniform', 'distance'],
+    'imputer__add_indicator': [True, False],
+    'regressor__alpha': [10, 100, 200],
+}
+
+grid_search = GridSearchCV(pipe, param_grid, cv=5, n_jobs=-1, scoring='r2')
+
+# and now we train over all the possible combinations 
+# of the parameters above
+grid_search.fit(X_train, y_train)
+
+# and we print the best score over the train set
+print(("best linear regression from grid search: %.3f"
+       % grid_search.score(X_train, y_train)))
+
+
+# and find the best parameters
+
+grid_search.best_params_
+
+

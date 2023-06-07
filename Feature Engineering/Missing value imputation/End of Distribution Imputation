@@ -1,0 +1,101 @@
+# 1. End of Distribution imputation
+
+# 2. Scenario
+# be applied to numerical variables
+# choosing arbitrary values can be laborious and it is a manual job so we can automate this by end of distribution imputation
+# normal, use mean+-3 std, not normal, use median+-3IQR
+# data is not missing at random
+
+# 3. Pros
+# fast
+# automates arbitrary value imputation
+# highlights missing data
+
+# 4. Cons
+# distort original distribution
+# distort variance and covariance
+# may mask outliers in the distribution
+
+# 5. how to drive the CCA?
+data = pd.read_csv("../titanic.csv", usecols=["age", "fare", "survived"])
+data.isnull().mean()
+X_train, X_test, y_train, y_test = train_test_split(
+    data[["age", "fare"]],  # predictors
+    data["survived"],  # target
+    test_size=0.3,  # percentage of obs in test set
+    random_state=0,
+)  # seed to ensure reproducibility
+
+X_train.shape, X_test.shape
+
+# after checking the distribution and know it is not missing at random
+
+# get the end of dirtsibution
+X_train["Age_imputed"] = X_train["age"].fillna(X_train.age.mean() + 3 * X_train.age.std())
+
+# finished imputation, we could analyze the variance
+print("Original variable variance: ", X_train["age"].var())
+print("Variance after the imputation: ", X_train["Age_imputed"].var())
+
+fig=plt.figure()
+ax=fig.add_subplot(111)
+
+X_train['age'].plot(kind='kde',ax=ax)
+X_train['Age_imputed'].plot(kind='kde',ax=ax,color='red')
+
+lines, labels = ax.get_legend_handles_labels()
+ax.legend(lines, labels, loc='best')
+
+# we also said end of tail imputation may affect the relationship
+# with the other variables in the dataset, let's have a look
+
+X_train[["fare", "age", "Age_imputed"]].cov()
+
+# Finally, I mentioned that end tail imputation may
+# affect the perception of outliers
+
+# Let's find out using a boxplot
+X_train[["age", "Age_imputed"]].boxplot()
+
+# 6. do it in pandas
+# you need to assign the variables to be imputed, at the first
+imputation_dict = (X_train[vars_na].mean() + 3 * X_train[vars_na].std()).to_dict()
+# or use IQR after checking it is skwed
+IQR = X_train[vars_na].quantile(0.75) - X_train[vars_na].quantile(0.25)
+
+imputation_dict = (X_train[vars_na].quantile(0.75) + 3 * IQR).to_dict()
+# or use max value
+imputation_dict = (X_train[vars_na].max() * 3).to_dict()
+
+# Replace missing data
+
+X_train.fillna(imputation_dict, inplace=True)
+X_test.fillna(imputation_dict, inplace=True)
+
+# use feature engine
+from sklearn.pipeline import Pipeline
+
+# from feature-engine
+from feature_engine.imputation import EndTailImputer
+
+pipe = Pipeline(
+    [
+        (
+            "imputer_skewed",
+            EndTailImputer(
+                imputation_method="iqr",
+                tail="right",
+                variables=["GarageYrBlt", "MasVnrArea"],
+            ),
+        ),
+        (
+            "imputer_gaussian",
+            EndTailImputer(
+                imputation_method="gaussian", tail="right", variables=["LotFrontage"]
+            ),
+        ),
+    ]
+)
+
+pipe.fit(X_train)
+

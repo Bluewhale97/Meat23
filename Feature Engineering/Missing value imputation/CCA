@@ -1,0 +1,114 @@
+# 1. Complete Case Analysis CCA(list-wise deletion)
+
+# 2. Scenario
+# be applied to both categorical and numerical variables
+# works well when the data is missing completely at random, excluding observations with missing information would be same as randomly excluding some observations from the dataset
+
+# 3. Pros
+# No data manipulation required
+# preserves variable distribution
+
+# 4. Cons
+# Discard a large fraction of the original dataset if missing is abundant
+# excluded observations could be informative if data is not missing at random
+# could create a biased dataset if not missing at random
+# model cannot handle missing data* (you handle your train set missing data but it doesnt mean you handled your missing data in test set)
+
+# 5. how to drive the CCA?
+data = pd.read_csv("../../houseprice.csv")
+data.shape
+
+# vars_na = [var for var in data.columns if data[var].isnull().mean()>0]
+data_na = data[vars_na].isnull().mean()
+data_na = pd.DataFrame(data_na.reset_index())
+data_na.columns = ['variable','na_fraction']
+data_na.sort_values(by='na_fraction',ascending=False, inplace=True)
+# find the variables with missing observations that are less than 0.05
+vars_cca = [var for var in data.columns if data[var].isnull().mean()>0 and data[var].isnull().mean()<0.05]
+
+# calculate the proportion of observations after dropping
+len(data.dropna(subset=vars_cca))/len(data)
+
+# now, drop na
+data_cca = data.dropna(subset=vars_cca)
+
+# then, check the distribution of a variable before and after
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+# original
+data['GrLivArea'].hist(bins=50, ax=ax, density=True, color='red')
+# later
+data_cca['GrLivArea'].hist(bins=50, ax=ax, density=True, color='blue')
+
+
+# using density plot
+# Original data.
+data["GrLivArea"].plot.density(color="red")
+
+# Data after cca.
+data_cca["GrLivArea"].plot.density(color="blue")
+
+# for categorical columns, you can use a function to compare different categories in the original and complete case dataset
+def categorical_distribution(df, df_cca, variable):
+    tmp = pd.concat(
+        [
+            # percentage of observations per category, original data
+            df[variable].value_counts(normalize=True),
+            # percentage of observations per category, cca data
+            df_cca[variable].value_counts(normalize=True),
+        ],
+        axis=1,
+    )
+
+    # add column names
+    tmp.columns = ["original", "cca"]
+
+    return tmp
+
+
+categorical_distribution(data, data_cca, "BsmtQual")
+
+
+# 6. CCA in pandas
+# you can either drop by subset
+X_train_t = X_train.dropna(subset=["MasVnrArea", "BsmtQual"])
+X_test_t = X_test.dropna(subset=["MasVnrArea", "BsmtQual"])
+# or drop by 'all'
+X_train_t = X_train.dropna(how="all")
+X_test_t = X_test.dropna(how="all")
+
+X_train_t.shape, X_test_t.shape
+
+# or drop if less than thresh
+X_train_t = X_train.dropna(subset=["MasVnrArea", "BsmtQual"],thresh=0.5)
+
+# 7. DropMissingData in feature engine
+X_train, X_test, y_train, y_test = train_test_split(
+    data.drop(["Id", "SalePrice"], axis=1),
+    data["SalePrice"],
+    test_size=0.3,
+    random_state=0,
+)
+
+X_train.shape, X_test.shape
+
+imputer = DropMissingData(
+  variables = ['Alley','MasVnrType'],
+  missing_only=False,
+  threshold=0.5
+)
+
+imputer.fit(X_train)
+
+# Number of observations with NA before the transformation
+
+X_train[imputer.variables].isna().sum()
+
+# After the transformation the rows with NA values are
+# deleted form the dataframe
+
+train_t = imputer.transform(X_train)
+test_t = imputer.transform(X_test)
+
+

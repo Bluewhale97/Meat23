@@ -1,0 +1,55 @@
+# 1. Mice Imputation
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import BayesianRidge
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.neighbors import KNeighborsRegressor
+
+# 2. Characteristics
+# same model will be used to predicted NA in all variables
+# cant use classification for binary variables and regression for continuous variables
+
+
+# 3. make imputers
+imputer_bayes = IterativeImputer(
+    estimator=BayesianRidge(),
+    max_iter=10,
+    random_state=0)
+
+imputer_knn = IterativeImputer(
+    estimator=KNeighborsRegressor(n_neighbors=5),
+    max_iter=10,
+    random_state=0)
+
+imputer_nonLin = IterativeImputer(
+    estimator=DecisionTreeRegressor(max_features='sqrt', random_state=0),
+    max_iter=500,
+    random_state=0)
+
+imputer_missForest = IterativeImputer(
+    estimator=ExtraTreesRegressor(n_estimators=10, random_state=0),
+    max_iter=100,
+    random_state=0)
+
+# 4. fit and transform
+imputer_bayes.fit(X_train)
+imputer_knn.fit(X_train)
+imputer_nonLin.fit(X_train)
+imputer_missForest.fit(X_train)
+
+# replace NA
+
+X_train_bayes = imputer_bayes.transform(X_train)
+X_train_knn = imputer_knn.transform(X_train)
+X_train_nonLin = imputer_nonLin.transform(X_train)
+X_train_missForest = imputer_missForest.transform(X_train)
+
+# transform numpy array to dataframe
+X_train_bayes = pd.DataFrame(X_train_bayes, columns = predictors)
+X_train_knn = pd.DataFrame(X_train_knn, columns = predictors)
+X_train_nonLin = pd.DataFrame(X_train_nonLin, columns = predictors)
+X_train_missForest = pd.DataFrame(X_train_missForest, columns = predictors)

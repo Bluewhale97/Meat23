@@ -1,0 +1,244 @@
+# 1. End of Distribution imputation
+
+# 2. Scenario
+# be applied to both categorical and numerical variables
+# missing completely at random
+# preserve the distribution of the variables
+
+# 3. Pros
+# preserves the variable distribution
+# well suited for linear models as it does not distort the distribution technically
+
+# 4. Cons
+# randomness
+# covar be affected
+# computationally expensive
+# memory heavy, keeping a copy of the training set
+
+# 5. when to use
+# missing completely at random, and no more 5% missing
+
+# 6. how to drive the random sample imputation for numeric values?
+# create the new variable where NA will be imputed:
+# make a copy from the original variable, with NA
+X_train["Age_imputed"] = X_train["age"].copy()
+X_test["Age_imputed"] = X_test["age"].copy()
+
+# extract the random sample to fill the na:
+# remember we do this always from the train set, and we use
+# these to fill both train and test
+
+random_sample_train = (
+    X_train["age"].dropna().sample(X_train["age"].isnull().sum(), random_state=0)
+)
+
+random_sample_test = (
+    X_train["age"].dropna().sample(X_test["age"].isnull().sum(), random_state=0)
+)
+
+# what is all of the above code doing?
+
+# 1) dropna() removes the NA from the original variable, this
+# means that I will randomly extract existing values and not NAs
+
+# 2) sample() is the method that will do the random sampling
+
+# 3) X_train['Age'].isnull().sum() is the number of random values to extract
+# I want to extract as many values as NAs are present in the original variable
+
+# 4) random_state sets the seed for reproducibility, so that I extract
+# always the same random values, every time I run this notebook
+
+# pandas needs to have the same index in order to merge datasets
+random_sample_train.index = X_train[X_train["age"].isnull()].index
+random_sample_test.index = X_test[X_test["age"].isnull()].index
+
+# replace the NA in the newly created variable
+X_train.loc[X_train["age"].isnull(), "Age_imputed"] = random_sample_train
+X_test.loc[X_test["age"].isnull(), "Age_imputed"] = random_sample_test
+
+# now, check the original distribution, assume it is no change
+# we can see that the distribution of the variable after
+# random sample imputation is almost exactly the same as the original
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+X_train["age"].plot(kind="kde", ax=ax)
+X_train["Age_imputed"].plot(kind="kde", ax=ax, color="red")
+
+lines, labels = ax.get_legend_handles_labels()
+ax.legend(lines, labels, loc="best")
+
+# there is some change in the variance of the variable.
+# however this change is much smaller compared to mean or median
+# imputation (check the previous notebook for comparison)
+
+print("Original variable variance: ", X_train["age"].var())
+print("Variance after random imputation: ", X_train["Age_imputed"].var())
+
+# the covariance of Age with Fare is also less affected by this
+# imputation technique compared to mean or median imputation
+
+X_train[["fare", "age", "Age_imputed"]].cov()
+
+# Finally, the outliers are also less affected by this imputation
+# technique
+
+# Let's find out using a boxplot
+X_train[["age", "Age_imputed"]].boxplot()
+
+# 7. how to drive random sample imputation for categorical values
+#  pretty similar to its work on numeric values
+
+# create the new variable where NA will be imputed
+# make a copy from the original variable, with NA
+X_train["BsmtQual_imputed"] = X_train["BsmtQual"].copy()
+X_test["BsmtQual_imputed"] = X_test["BsmtQual"].copy()
+
+# extract the random sample to fill the na:
+# remember we do this always from the train set, and we use
+# these to fill both train and test
+
+random_sample_train = (
+    X_train["BsmtQual"]
+    .dropna()
+    .sample(X_train["BsmtQual"].isnull().sum(), random_state=0)
+)
+
+random_sample_test = (
+    X_train["BsmtQual"]
+    .dropna()
+    .sample(X_test["BsmtQual"].isnull().sum(), random_state=0)
+)
+
+# what is all of the above code doing?
+# 1) dropna() removes the NA from the original variable, this
+# means that I will randomly extract existing values and not NAs
+
+# 2) sample() is the method that will do the random sampling
+
+# 3) X_train['BsmtQual'].isnull().sum() is the number of random values to extract
+# I want to extract as many values as NAs are present in the original variable
+
+# 4) random_state sets the seed for reproducibility, so that I extract
+# always the same random values, every time I run this notebook
+
+# pandas needs to have the same index in order to merge datasets
+random_sample_train.index = X_train[X_train["BsmtQual"].isnull()].index
+random_sample_test.index = X_test[X_test["BsmtQual"].isnull()].index
+
+# replace the NA in the newly created variable
+X_train.loc[X_train["BsmtQual"].isnull(), "BsmtQual_imputed"] = random_sample_train
+X_test.loc[X_test["BsmtQual"].isnull(), "BsmtQual_imputed"] = random_sample_test
+
+# and now let's evaluate the effect of the imputation on the distribution
+# of the categories and the target within those categories
+
+# we used a similar function in the notebook of arbitrary value imputation
+# for categorical variables
+
+
+def categorical_distribution(df, variable_original, variable_imputed):
+
+    tmp = pd.concat(
+        [
+            # percentage of observations per category, original variable
+            df[variable_original].value_counts(normalize=True),
+            # percentage of observations per category, imputed variable
+            df[variable_imputed].value_counts(normalize=True),
+        ],
+        axis=1,
+    )
+
+    # add column names
+    tmp.columns = ["original", "imputed"]
+
+    return tmp
+# run the function in a categorical variable
+categorical_distribution(X_train, "BsmtQual", "BsmtQual_imputed")
+
+# now let's look at the distribution of the target within each
+# variable category
+
+
+def automate_plot(df, variable, target):
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    for category in df[variable].dropna().unique():
+        df[df[variable] == category][target].plot(kind="kde", ax=ax)
+
+    # add the legend
+    lines, labels = ax.get_legend_handles_labels()
+    labels = df[variable].dropna().unique()
+    ax.legend(lines, labels, loc="best")
+
+    plt.show()
+automate_plot(X_train, "BsmtQual", "SalePrice")
+
+
+automate_plot(X_train, "BsmtQual_imputed", "SalePrice")
+
+
+# 8. do it in pandas
+for var in vars_na:
+
+    # extract the random sample to fill the na:
+    # remember we do this always from the train set, and we use
+    # these to fill both train and test
+
+    random_sample_train = (
+        X_train[var].dropna().sample(X_train[var].isnull().sum(), random_state=0)
+    )
+
+    random_sample_test = (
+        X_train[var].dropna().sample(X_test[var].isnull().sum(), random_state=0)
+    )
+
+    # what is all of the above code doing?
+
+    # 1) dropna() removes the NA from the original variable, this
+    # means that I will randomly extract existing values and not NAs
+
+    # 2) sample() is the method that will do the random sampling
+
+    # 3) X_train[var].isnull().sum() is the number of random values to extract
+    # I want to extract as many values as NAs are present in the original variable
+
+    # 4) random_state sets the seed for reproducibility, so that I extract
+    # always the same random values, every time I run this notebook
+
+    # pandas needs to have the same index in order to merge datasets
+    random_sample_train.index = X_train[X_train[var].isnull()].index
+    random_sample_test.index = X_test[X_test[var].isnull()].index
+
+    # replace the NA in the newly created variable
+    X_train.loc[X_train[var].isnull(), var] = random_sample_train
+    X_test.loc[X_test[var].isnull(), var] = random_sample_test
+
+
+# 9. use feature engine
+from sklearn.pipeline import Pipeline
+
+# from feature-engine
+from feature_engine.imputation import RandomSampleImputer
+# we call the imputer from feature-engine
+
+imputer = RandomSampleImputer(variables=['a','b','c'],random_state=29)
+
+# we fit the imputer
+
+imputer.fit(X_train)
+
+# we see that the imputer selected all the variables, numerical
+# and categorical
+
+imputer.variables_
+
+# the imputer stores a copy of the selected variables from
+# the train set, from which to extract the random samples
+
+imputer.X_.head()
+

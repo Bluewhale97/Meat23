@@ -1,0 +1,89 @@
+# 1. One-hot encoding into k dummy variables
+
+# 2. scenario
+# when building tree-based algorithms
+# when doing feature selection by recursive algorithms
+# when being interested in determining the importance of each category
+
+# 3. pros
+# straightforward
+# no assumption about the categorical variable distribution
+# keeps all the info of the categorical variable
+# suitable for linear models
+
+# 4. cons
+# expand feature space
+# does not add extra infomration while encoding
+# many dummy variables may be identical, introducing collinearity
+# if a value of a feature is not in training set but in test set, it will cause error
+
+# 5. how to work it
+# use get_dummies() in pandas
+tmp = pd.get_dummies(X_train["sex"])
+
+tmp.head()
+
+# for better visualisation let's put the dummies next
+# to the original variable
+
+pd.concat([X_train["sex"], pd.get_dummies(X_train["sex"])], axis=1).head()
+
+# 6. work it on sklearn
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+# sklearn
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+
+# let's separate into training and testing set
+
+X_train, X_test, y_train, y_test = train_test_split(
+    data.drop("survived", axis=1),  # predictors
+    data["survived"],  # target
+    test_size=0.3,  # percentage of obs in test set
+    random_state=0,
+)  # seed to ensure reproducibility
+
+X_train.shape, X_test.shape
+
+# set up encoder
+encoder = OneHotEncoder(
+    categories="auto",
+    drop="first",  # to return k-1, use drop=false to return k dummies
+    sparse_output=False,
+    handle_unknown="error",  # helps deal with rare labels
+)
+
+# select the variables to encode
+
+# set up encoder and imputation in pipeline
+# we only want to impute categorical variables
+
+pipe = Pipeline(
+    [
+        ("imputer", SimpleImputer(strategy="constant", fill_value="missing")),
+        (("ohe", encoder)),
+    ]
+)
+
+# select the variables to transform (impute + encode)
+
+ct = ColumnTransformer(
+    [("encoder", pipe, ["sex", "embarked", "cabin"])], remainder="passthrough"
+)
+
+ct.set_output(transform="pandas")
+
+# fit pipeline
+
+ct.fit(X_train)
+
+# transform data
+
+X_train_enc = ct.transform(X_train)
+X_test_enc = ct.transform(X_test)
+
+X_train_enc.head()

@@ -1,0 +1,21 @@
+# 1. Mean median group imputation
+imputation_dict = {}
+
+for i in X_train["LotShape"].unique():
+
+    imputation_dict[i] = (
+        X_train[X_train["LotShape"] == i][vars_to_impute].mean().to_dict()
+    )
+
+imputation_dict
+
+# Replace missing data
+
+for i in imputation_dict.keys():
+
+    X_train[X_train["LotShape"] == i] = X_train[X_train["LotShape"] == i].fillna(
+        imputation_dict[i]
+    )
+    X_test[X_test["LotShape"] == i] = X_test[X_test["LotShape"] == i].fillna(
+        imputation_dict[i]
+    )

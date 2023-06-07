@@ -1,0 +1,52 @@
+# 1. Count frequency encoding
+
+# 2. scenario
+# The assumption of this technique is that the number observations shown by each variable is somewhat informative of the predictive power of the category.
+
+# 3. pros
+# simple
+# not expand the feature space
+
+# 4. cons
+# If 2 different categories appear the same amount of times in the dataset, that is, they appear in the same number of observations, they will be replaced by the same number: may lose valuable information.
+
+# 5. how to work it
+count_map = X_train["Neighborhood"].value_counts().to_dict()
+
+count_map
+
+# replace the labels with the counts
+
+X_train["Neighborhood"] = X_train["Neighborhood"].map(count_map)
+X_test["Neighborhood"] = X_test["Neighborhood"].map(count_map)
+
+# if instead of the count we would like the frequency
+# we need only divide the count by the total number of observations:
+
+frequency_map = (X_train["Exterior1st"].value_counts(normalize=True)).to_dict()
+frequency_map
+
+# replace the labels with the frequencies
+
+X_train["Exterior1st"] = X_train["Exterior1st"].map(frequency_map)
+X_test["Exterior1st"] = X_test["Exterior1st"].map(frequency_map)
+
+# 6. work it on feature engine
+count_enc = CountFrequencyEncoder(
+    encoding_method="count",  # to do frequency ==> encoding_method='frequency'
+    variables=["Neighborhood", "Exterior1st", "Exterior2nd"],
+)
+
+count_enc.fit(X_train)
+
+# in the encoder dict we can observe the number of
+# observations per category for each variable
+
+count_enc.encoder_dict_
+
+
+X_train = count_enc.transform(X_train)
+X_test = count_enc.transform(X_test)
+
+# let's explore the result
+X_train.head()

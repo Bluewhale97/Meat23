@@ -1,0 +1,168 @@
+# 1. Grouping rare categories
+
+# 2. scenario
+# grouping infrequent labels or categories under a new category called 'Rare' or 'Other' is the common practice in machine learning for business
+
+
+# 3. pros
+# Grouping categories into rare for variables that show low cardinality may or may not improve model performance, however, we tend to re-group them into a new category to smooth model deployment.
+# Grouping categories into rare for variables with high cardinality, tends to improve model performance as well.
+
+# 4. cons
+# does not keep the information of the ignored labels
+# does not add any information that may make the variable more predictive
+
+# 5. how to work it
+# let's explore a few examples in which variables have only a few categories, say less than 3
+
+for col in X_train.columns:
+
+    if X_train[col].dtypes == "O":  # if the variable is categorical
+
+        if X_train[col].nunique() < 3:  # if the variable has less than 3 categories
+
+            # print percentage of observations per category
+            print(X_train.groupby(col)[col].count() / len(X_train))
+            print()
+
+# The 3 variables above, Street, Utilities and CentralAir, show one dominating category which accounts for more than 93-99% of the observations. Re-grouping the rare label in this situation does not make any sense. We could determine if these variables are useful with exploratory analysis, or any feature selection algorithm, or drop the variables altogether.
+
+# the columns in the below list have only 4 different labels
+
+cols = ["MasVnrType", "ExterQual", "BsmtCond"]
+
+for col in cols:
+
+    print(X_train.groupby(col)[col].count() / len(X_train))  # frequency
+    print()
+
+
+# let's explore examples in which variables have several categories, say more than 10
+
+multi_cat_cols = []
+
+for col in X_train.columns:
+
+    if X_train[col].dtypes == "O":  # if variable  is categorical
+
+        if X_train[col].nunique() > 10:  # and has more than 10 categories
+
+            multi_cat_cols.append(col)  # add to the list
+
+            print(
+                X_train.groupby(col)[col].count() / len(X_train)
+            )  # and print the percentage of observations within each category
+
+            print()
+
+
+for col in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
+
+    temp_df = pd.Series(X_train[col].value_counts() / len(X_train))
+
+    # make plot with the above percentages
+    fig = temp_df.sort_values(ascending=False).plot.bar()
+    fig.set_xlabel(col)
+
+    # add a line at 5 % to flag the threshold for rare categories
+    fig.axhline(y=0.05, color="red")
+    fig.set_ylabel("Percentage of houses")
+    plt.show()
+
+
+def find_non_rare_labels(df, variable, tolerance):
+
+    temp = df.groupby([variable])[variable].count() / len(df)
+
+    non_rare = [x for x in temp.loc[temp > tolerance].index.values]
+
+    return non_rare
+  
+# non rare labels
+find_non_rare_labels(X_train, "Neighborhood", 0.05)
+
+# rare labels
+
+[
+    x
+    for x in X_train["Neighborhood"].unique()
+    if x not in find_non_rare_labels(X_train, "Neighborhood", 0.05)
+]
+
+def rare_encoding(X_train, X_test, variable, tolerance):
+
+    X_train = X_train.copy()
+    X_test = X_test.copy()
+
+    # find the most frequent category
+    frequent_cat = find_non_rare_labels(X_train, variable, tolerance)
+
+    # re-group rare labels
+    X_train[variable] = np.where(
+        X_train[variable].isin(frequent_cat), X_train[variable], "Rare"
+    )
+
+    X_test[variable] = np.where(
+        X_test[variable].isin(frequent_cat), X_test[variable], "Rare"
+    )
+
+    return X_train, X_test
+  
+
+for variable in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
+
+    X_train, X_test = rare_encoding(X_train, X_test, variable, 0.05)
+
+for col in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
+
+    temp_df = pd.Series(X_train[col].value_counts() / len(X_train))
+
+    # make plot with the above percentages
+    fig = temp_df.sort_values(ascending=False).plot.bar()
+    fig.set_xlabel(col)
+
+    # add a line at 5 % to flag the threshold for rare categories
+    fig.axhline(y=0.05, color="red")
+    fig.set_ylabel("Percentage of houses")
+    plt.show()
+
+# And now let's encode the low cardinal variables.
+for variable in ["MasVnrType", "ExterQual", "BsmtCond"]:
+
+    X_train, X_test = rare_encoding(X_train, X_test, variable, 0.05)
+for col in ["MasVnrType", "ExterQual", "BsmtCond"]:
+
+    temp_df = pd.Series(X_train[col].value_counts() / len(X_train))
+
+    # make plot with the above percentages
+    fig = temp_df.sort_values(ascending=False).plot.bar()
+    fig.set_xlabel(col)
+
+    # add a line at 5 % to flag the threshold for rare categories
+    fig.axhline(y=0.05, color="red")
+    fig.set_ylabel("Percentage of houses")
+    plt.show()
+
+
+# 6. work it on sklearn
+# Rare value encoder
+rare_encoder = RareLabelEncoder(
+    tol=0.05,  # minimal percentage to be considered non-rare
+    n_categories=4,  # minimal number of categories the variable should have to re-cgroup rare categories
+    variables=[
+        "Neighborhood",
+        "Exterior1st",
+        "Exterior2nd",
+        "MasVnrType",
+        "ExterQual",
+        "BsmtCond",
+    ],  # variables to re-group
+)
+
+rare_encoder.fit(X_train.fillna("Missing"))
+
+# the encoder_dict_ is a dictionary of variable: frequent labels pair
+rare_encoder.encoder_dict_
+
+X_train = rare_encoder.transform(X_train.fillna("Missing"))
+X_test = rare_encoder.transform(X_test.fillna("Missing"))

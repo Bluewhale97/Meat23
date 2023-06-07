@@ -1,0 +1,154 @@
+# 1. Weight of Evidence WoE
+
+# 2. scenario
+# the target variable should be numeric, because we need to use the mean of the target variable
+
+
+# 3. pros
+# creates a monotonic relationship between the target and the independent variables
+# orders the categories on a 'logistic' scale which is natural for logistic regression
+# the transformed variables can be then compared because they are on the same scale. Therefore it is possible to determine which one is more predicted
+
+# 4. cons
+# cause overfitting
+
+# 5. how to work it
+# let's calculate the proportion of passengers who survived
+# over the total survivors, per category of cabin
+
+# total survivors
+total_survived = X_train["survived"].sum()
+
+# percentage of passenges who survived, from total survivors
+# per category of cabin
+survived = X_train.groupby(["cabin"])["survived"].sum() / total_survived
+
+survived
+
+# let's calculate the proportion of passengers who did not survive
+# over the total passengers who didn't, per category of cabin
+
+# total passengers who did not survive
+total_non_survived = len(X_train) - X_train["survived"].sum()
+
+# let's create a flag for passenges who did not survive
+X_train["non_survived"] = np.where(X_train["survived"] == 1, 0, 1)
+
+# now let's calculate the % of passengers who did not survive
+# per category of cabin
+non_survived = X_train.groupby(["cabin"])["non_survived"].sum() / total_non_survived
+
+non_survived
+
+#  now let's combine those 2 series in a dataframe and calculate the
+# WoE
+
+# let's concatenate the series in a dataframe
+prob_df = pd.concat([survived, non_survived], axis=1)
+
+# let's calculate the Weight of Evidence
+prob_df["woe"] = np.log(prob_df["survived"] / prob_df["non_survived"])
+
+prob_df
+
+# and now let's capture the woe in a dictionary
+
+ordered_labels = prob_df["woe"].to_dict()
+
+ordered_labels
+
+# now, we replace the labels with the woe
+
+X_train["cabin"] = X_train["cabin"].map(ordered_labels)
+X_test["cabin"] = X_test["cabin"].map(ordered_labels)
+
+# we can turn the previous commands into 2 functions
+
+
+def find_category_mappings(df, variable, target):
+
+    # copy of the original dataframe, so we do not accidentally
+    # modify it
+    tmp = df.copy()
+
+    # total positive class
+    total_pos = df[target].sum()
+
+    # total negative class
+    total_neg = len(df) - df[target].sum()
+
+    # non target
+    tmp["non-target"] = 1 - tmp[target]
+
+    # % of positive class per category, respect to total positive class
+    pos_perc = tmp.groupby([variable])[target].sum() / total_pos
+
+    # % of negative class per category, respect to total negative class
+    neg_perc = tmp.groupby([variable])["non-target"].sum() / total_neg
+
+    # let's concatenate
+    prob_tmp = pd.concat([pos_perc, neg_perc], axis=1)
+
+    # let's calculate the Weight of Evidence
+    prob_tmp["woe"] = np.log(prob_tmp[target] / prob_tmp["non-target"])
+
+    return prob_tmp["woe"].to_dict()
+
+
+def integer_encode(train, test, variable, ordinal_mapping):
+
+    train[variable] = train[variable].map(ordinal_mapping)
+
+    test[variable] = test[variable].map(ordinal_mapping)
+
+# and now we run a loop over the remaining categorical variables
+
+for variable in ["sex", "embarked"]:
+
+    mappings = find_category_mappings(X_train, variable, "survived")
+
+    integer_encode(X_train, X_test, variable, mappings)
+
+# let's inspect the newly created monotonic relationship
+# between the categorical variables and the target
+
+# first in the train set
+for var in ["cabin", "sex", "embarked"]:
+
+    fig = plt.figure()
+    fig = X_train.groupby([var])["survived"].mean().plot()
+    fig.set_title("Monotonic relationship between {} and Survival".format(var))
+    fig.set_ylabel("Mean Survived")
+    plt.show()
+
+
+# now in the test set
+for var in ["cabin", "sex", "embarked"]:
+
+    fig = plt.figure()
+    fig = X_test.groupby([var])["survived"].mean().plot()
+    fig.set_title("Monotonic relationship between {} and Survival".format(var))
+    fig.set_ylabel("Mean Survived")
+    plt.show()
+
+# 6. work it on feature engine
+woe_enc = WoEEncoder(variables=["cabin", "sex", "embarked"])
+# when fitting the transformer, we need to pass the target as well
+# just like with any Scikit-learn predictor class
+
+woe_enc.fit(X_train, y_train)
+
+# in the encoder dict we see the woe for each category
+# for each of the selected variables
+
+woe_enc.encoder_dict_
+
+# this is the list of variables that the encoder will transform
+
+woe_enc.variables_
+
+X_train = woe_enc.transform(X_train)
+X_test = woe_enc.transform(X_test)
+
+# let's explore the result
+X_train.head()

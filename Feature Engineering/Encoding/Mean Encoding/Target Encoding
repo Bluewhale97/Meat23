@@ -1,10 +1,10 @@
-# 1. Ordered ordinal encoding
-# Ordered ordinal encoding is a method where you assign numerical values to the categories of a categorical variable based on their relationship to the target variable. The categories are assigned numerical values in ascending or descending order based on their mean target value.
+# 1. Mean Encoding or Target Encoding
+# Mean encoding, also known as target encoding, is a method where you replace a categorical variable with the mean of the target variable for each category. This method can be useful when dealing with high cardinality categorical variables.
 
 
 # 2. scenario
-# The assumption of this technique is that the number observations shown by each variable is somewhat informative of the predictive power of the category.
-# it is available when the target is numeric, because we need to use the mean of each group and order them and give the rank.
+# the target variable should be numeric, because we need to use the mean of the target variable
+
 
 # 3. pros
 # quick
@@ -15,42 +15,30 @@
 # cause overfitting
 
 # 5. how to work it
-# let's order the labels according to the mean target value
+# let's calculate the mean target value per category for cabin
 
-y_train.groupby(X_train["Neighborhood"]).mean().sort_values()
+y_train.groupby(X_train["cabin"]).mean()
 
-# first  we generate an ordered list with the labels
+# and now let's do the same but capturing the result in a dictionary
 
-ordered_labels = y_train.groupby(X_train["Neighborhood"]).mean().sort_values().index
+ordered_labels = y_train.groupby(X_train["cabin"]).mean().to_dict()
 
 ordered_labels
 
-# next let's create a dictionary with the mappings of categories to numbers
+# now, we replace the labels with the target means
 
-ordinal_mapping = {k: i for i, k in enumerate(ordered_labels, 0)}
-
-ordinal_mapping
-
-# now, we replace the labels with the integers
-
-X_train["Neighborhood"] = X_train["Neighborhood"].map(ordinal_mapping)
-X_test["Neighborhood"] = X_test["Neighborhood"].map(ordinal_mapping)
-
+X_train["cabin"] = X_train["cabin"].map(ordered_labels)
+X_test["cabin"] = X_test["cabin"].map(ordered_labels)
 
 # let's explore the result
 
-X_train["Neighborhood"].head(10)
+X_train["cabin"].head(10)
 
 # we can turn the previous commands into 2 functions
 
 
 def find_category_mappings(df, variable, target):
-
-    # first  we generate an ordered list with the labels
-    ordered_labels = target.groupby(df[variable]).mean().sort_values().index
-
-    # return the dictionary with mappings
-    return {k: i for i, k in enumerate(ordered_labels, 0)}
+    return target.groupby(df[variable]).mean().to_dict()
 
 
 def integer_encode(train, test, variable, ordinal_mapping):
@@ -60,36 +48,35 @@ def integer_encode(train, test, variable, ordinal_mapping):
 
 # and now we run a loop over the remaining categorical variables
 
-for variable in ["Exterior1st", "Exterior2nd"]:
-
+for variable in ["sex", "embarked"]:
     mappings = find_category_mappings(X_train, variable, y_train)
-
     integer_encode(X_train, X_test, variable, mappings)
+
+# let's see the result
+
+X_train.head()
 
 # let's inspect the newly created monotonic relationship
 # between the variables and the target
 
-for var in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
+for var in ["cabin", "sex", "embarked"]:
 
     fig = plt.figure()
     fig = y_train.groupby(X_train[var]).mean().plot()
-    fig.set_title("Monotonic relationship between {} and SalePrice".format(var))
-    fig.set_ylabel("Mean SalePrice")
+    fig.set_title("Monotonic relationship between {} and Survival".format(var))
+    fig.set_ylabel("Mean Survived")
     plt.show()
 
-
-
-# check the relationship in test dataset
+# let's inspect the newly created monotonic relationship
 # between the variables and the target
 
-for var in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
+for var in ["cabin", "sex", "embarked"]:
 
     fig = plt.figure()
     fig = y_test.groupby(X_test[var]).mean().plot()
-    fig.set_title("Monotonic relationship between {} and SalePrice".format(var))
-    fig.set_ylabel("Mean SalePrice")
+    fig.set_title("Monotonic relationship between {} and Survival".format(var))
+    fig.set_ylabel("Mean Survived")
     plt.show()
-# The monotonicity in the test set is somewhat lost, which means that this encoding method may cause over-fitting when training a model.
 
 
 # 6. work it on feature engine
@@ -134,3 +121,25 @@ for var in ["Neighborhood", "Exterior1st", "Exterior2nd"]:
     fig.set_title("Monotonic relationship between {} and SalePrice".format(var))
     fig.set_ylabel("Mean SalePrice")
     plt.show()
+
+# 7. Mean Encoding with feature engine
+mean_enc = MeanEncoder(variables=["cabin", "sex", "embarked"])
+# when fitting the transformer, we need to pass the target as well
+# just like with any Scikit-learn predictor class
+
+mean_enc.fit(X_train, y_train)
+
+# in the encoder dict we see the target mean assigned to each
+# category for each of the selected variables
+
+mean_enc.encoder_dict_
+
+# this is the list of variables that the encoder will transform
+
+mean_enc.variables_
+
+X_train = mean_enc.transform(X_train)
+X_test = mean_enc.transform(X_test)
+
+# let's explore the result
+X_train.head()

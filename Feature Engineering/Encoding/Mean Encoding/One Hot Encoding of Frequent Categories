@@ -1,0 +1,101 @@
+# 1. One Hot Encoding of Frequent Categories
+
+# 2. scenario
+# In order to avoid complications, we can create dummy variables only for the most frequent categories
+
+
+# 3. pros
+# straightforward to implement
+# does not require hrs of variable exploration
+# does not expand massively the feature space
+# suitable for linear models
+
+# 4. cons
+# does not keep the information of the ignored labels
+# does not add any information that may make the variable more predictive
+
+# 5. how to work it
+# let's find the top 10 most frequent categories for the variable 'Neighborhood'
+
+X_train["Neighborhood"].value_counts().sort_values(ascending=False).head(10)
+
+# let's make a list with the most frequent categories of the variable
+
+top_10 = [
+    x
+    for x in X_train["Neighborhood"]
+    .value_counts()
+    .sort_values(ascending=False)
+    .head(10)
+    .index
+]
+
+top_10
+
+# and now we make the 10 binary variables
+
+for label in top_10:
+    X_train["Neighborhood" + "_" + label] = np.where(
+        X_train["Neighborhood"] == label, 1, 0
+    )
+
+    X_test["Neighborhood" + "_" + label] = np.where(
+        X_test["Neighborhood"] == label, 1, 0
+    )
+
+# let's visualise the result
+X_train[["Neighborhood"] + ["Neighborhood" + "_" + c for c in top_10]].head(10)
+
+# we can turn the previous commands into 2 functions
+
+
+def calculate_top_categories(df, variable, how_many=10):
+    return [
+        x
+        for x in df[variable]
+        .value_counts()
+        .sort_values(ascending=False)
+        .head(how_many)
+        .index
+    ]
+
+
+def one_hot_encode(train, test, variable, top_x_labels):
+
+    for label in top_x_labels:
+        train[variable + "_" + label] = np.where(train[variable] == label, 1, 0)
+
+        test[variable + "_" + label] = np.where(test[variable] == label, 1, 0)
+
+# and now we run a loop over the remaining categorical variables
+
+for variable in ["Exterior1st", "Exterior2nd"]:
+
+    top_categories = calculate_top_categories(X_train, variable, how_many=10)
+
+    one_hot_encode(X_train, X_test, variable, top_categories)
+
+# 6. work it on sklearn
+ohe_enc = OneHotEncoder(
+    handle_unknown="infrequent_if_exist",  # unseen categories will be treated like the less frequent ones
+    max_categories=5,  # the number of top categories
+    sparse_output=False,  # necessary for set output pandas
+)
+
+ohe_enc.set_output(transform="pandas")
+
+ohe_enc.fit(X_train)
+
+ohe_enc.infrequent_categories_
+
+# the categories found in each variable
+
+ohe_enc.categories_
+
+# encode
+X_train = ohe_enc.transform(X_train)
+X_test = ohe_enc.transform(X_test)
+
+# let's explore the result
+X_train.head()
+

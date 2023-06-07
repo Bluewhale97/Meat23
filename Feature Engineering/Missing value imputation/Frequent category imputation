@@ -1,0 +1,160 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.model_selection import train_test_split
+
+# 1. Frequent category imputation/Mode Imputation
+
+
+# 2. Scenario
+# In general, only used for categorical variables
+# the assumpution is that data is missing completely at random
+# less than 5%
+
+# 3. Pros
+# fast
+
+# 4. Cons
+# Distortion of the original distribution if missing is large
+# Over-representation of the most frequent category
+
+# 5. When using
+# missing completely at random
+# no more than 5% of the variables contain missing data
+
+
+# 6. How to drive a complete process on arbitrary imputation
+
+# a. know if it is missing completely at random, group by the target variable and other variables
+# if you see a significant difference there, it is not missing at random or it is missing at random
+data['age'].isnull().groupby(data['survived']).mean()
+
+
+# b. check the proportion of null values in that feature
+data['age'].isnull().mean()#if more than 0.05, do not directly impute
+
+# c. impute arbitrary values, you can plot the distribution as well
+X_train['BsmtQual'].value_counts().sort_values(ascending=False).plot.bar()
+X_train['BsmtQual'].mode()
+# have a new variable storing the imputed variable
+X_train['B_imputed'] = X_train['BsmtQual'].copy().fillna('TA')
+X_test['B_imputed'] = X_test['BsmtQual'].copy().fillna('TA')
+
+
+# d. check the distribution change after the imputation, target variable v.s. imputed variable
+# * those that show missing data
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+# select and plot houses with the most frequent label
+X_train[X_train["BsmtQual"] == "TA"]["SalePrice"].plot(kind="kde", ax=ax)
+
+# select and plot houses with missing data in the variable
+X_train[X_train["BsmtQual"].isnull()]["SalePrice"].plot(kind="kde", ax=ax, color="red")
+
+# add the legend
+lines, labels = ax.get_legend_handles_labels()
+labels = ["Houses with TA", "Houses with NA"]
+ax.legend(lines, labels, loc="best")
+
+# add figure title
+plt.title("BsmtQual")
+
+# now you know the houses with missing data cost overall less than those with the label TA. Therefore, replacing missing values by TA, could affect the overall distribution, if there were a lot of NA.
+
+
+# you can plot kde as well
+# did the distribution of SalePrice for the most frequent category change?
+# let's have a look
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+# original distribution of salePrice for houses with most frequent label
+# remember I captured this a few cells up in the notebook
+tmp.plot(kind="kde", ax=ax)
+
+# distribution of the variable after imputation
+X_train[X_train["BsmtQual"] == "TA"]["SalePrice"].plot(kind="kde", ax=ax, color="red")
+
+# add the legend
+lines, labels = ax.get_legend_handles_labels()
+labels = ["Original variable", "Imputed variable"]
+ax.legend(lines, labels, loc="best")
+
+# add title
+plt.title("BsmtQual")
+
+# 7. impute arbitrary values together on your dataset in pandas dataframe
+# first need to get to know the proportion of missing data for each categorical features
+X_train.isnull().mean()
+
+# then create a imputation_dict
+imputation_dict = X_train[["BsmtQual", "FireplaceQu"]].mode().iloc[0].to_dict()
+
+imputation_dict
+
+# then replace missing data
+X_train.fillna(imputation_dict, inplace=True)
+X_test.fillna(imputation_dict, inplace=True)
+
+# 8. using sklearn imputer to do imputation
+X_train, X_test, y_train, y_test = train_test_split(data[['age','fare']], data['survived'], test_size=.3, random_state=0)
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+
+# first, make a imputer, before it, you need to check the distribution of them and know if they are completely missing at random and less than 5%
+
+#after that, make imputers
+imputer = SimpleImputer(strategy='most_frequent')
+# fit the data with your imputers
+imputer.fit(X_train)
+
+# check statistics_
+imputer.statistics_
+
+
+# transform it to X_train and X_test
+X_train = imputer.transform(X_train)
+X_test = imputer.transform(X_test)
+
+# now, X_train and X_test are ndarray, convert them back to dataframe
+X_train = pd.DataFrame(X_train, columns=imputer.get_feature_names_out(),)
+X_train
+
+X_test = pd.DataFrame(X_test, columns=imputer.get_feature_names_out(),)
+X_test
+
+# 9. Method in pipelining
+# assume you know how to impute your features, using median/mean
+
+# first step, make imputers
+features_numeric = [
+    "BsmtUnfSF",
+    "LotFrontage",
+    "MasVnrArea",
+]
+features_categoric = ["BsmtQual", "FireplaceQu", "MSZoning", "Street", "Alley"]
+
+# then we put the features list and the transformers
+# to the column transformer
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("numeric_imputer", SimpleImputer(strategy="mean"), features_numeric),
+        (
+            "categoric_imputer",
+            SimpleImputer(strategy="most_frequent"),
+            features_categoric,
+        ),
+    ]
+).set_output(transform='pandas')
+#'drop' means only retain the transformed features
+
+# explore a bit about your transformers
+preprocessor.named_transformers_['categoric_imputer'].statistics_
+preprocessor.fit(X_train)
+# second step, make transforms
+X_train = preprocessor.transform(X_train)
+X_test = preprocessor.transforms(X_test)

@@ -1,0 +1,125 @@
+import pandas as pd
+import numpy as np
+
+# import classes for imputation
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+
+# import classes for modelling
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.linear_model import Lasso
+from sklearn.model_selection import train_test_split, GridSearchCV
+
+np.random.seed(0)
+
+# load dataset with all the variables
+
+data = pd.read_csv("../../houseprice.csv")
+
+data.head()
+
+# find categorical variables,
+# those of type 'Object' in the dataset
+features_categorical = [c for c in data.columns if data[c].dtypes == "O"]
+
+# find numerical variables,
+# those different from object and
+# also excluding the target SalePrice
+features_numerical = [
+    c for c in data.columns if data[c].dtypes != "O" and c != "SalePrice"
+]
+
+# inspect the categorical variables
+
+data[features_categorical].head()
+
+# inspect the numerical variables
+
+data[features_numerical].head()
+
+# separate intro train and test set
+
+X_train, X_test, y_train, y_test = train_test_split(
+    data.drop("SalePrice", axis=1),  # just the features
+    data["SalePrice"],  # the target
+    test_size=0.3,  # the percentage of obs in the test set
+    random_state=0,
+)  # for reproducibility
+
+X_train.shape, X_test.shape
+
+# We create the preprocessing pipelines for both
+# numerical and categorical data
+
+# adapted from Scikit-learn code available here under BSD3 license:
+# https://scikit-learn.org/stable/auto_examples/compose/plot_column_transformer_mixed_types.html
+
+numeric_transformer = Pipeline(
+    steps=[("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]
+)
+
+categorical_transformer = Pipeline(
+    steps=[
+        ("imputer", SimpleImputer(strategy="constant", fill_value="missing")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore")),
+    ]
+)
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("numerical", numeric_transformer, features_numerical),
+        ("categorical", categorical_transformer, features_categorical),
+    ]
+)
+
+# Note that to initialise the pipeline I pass any argument to the transformers.
+# Those will be changed during the gridsearch below
+
+# We create the preprocessing pipelines for both
+# numerical and categorical data
+
+# adapted from Scikit-learn code available here under BSD3 license:
+# https://scikit-learn.org/stable/auto_examples/compose/plot_column_transformer_mixed_types.html
+
+numeric_transformer = Pipeline(
+    steps=[("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]
+)
+
+categorical_transformer = Pipeline(
+    steps=[
+        ("imputer", SimpleImputer(strategy="constant", fill_value="missing")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore")),
+    ]
+)
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("numerical", numeric_transformer, features_numerical),
+        ("categorical", categorical_transformer, features_categorical),
+    ]
+)
+
+# Note that to initialise the pipeline I pass any argument to the transformers.
+# Those will be changed during the gridsearch below
+
+# Append classifier to preprocessing pipeline.
+# Now we have a full prediction pipeline.
+
+pipe = Pipeline(
+    steps=[("preprocessor", preprocessor), ("regressor", Lasso(max_iter=2000))]
+)
+
+# now we create the grid with all the parameters that we would like to test
+
+param_grid = {
+    "preprocessor__numerical__imputer__strategy": ["mean", "median"],
+    "preprocessor__categorical__imputer__strategy": ["most_frequent", "constant"],
+    "regressor__alpha": [10, 100, 200],
+}
+
+grid_search = GridSearchCV(pipe, param_grid, cv=5, n_jobs=-1, scoring="r2")
+
+# cv=3 is the cross-validation
+# no_jobs =-1 indicates to use all available cpus
+# scoring='r2' indicates to evaluate using the r squared

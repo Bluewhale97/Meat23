@@ -1,0 +1,126 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.model_selection import train_test_split
+
+# 1. Arbitrary value imputation for categorical variables
+
+
+# 2. Scenario
+# no assumption
+# proportion of missing data is high
+
+# 3. Pros
+# fast
+# highlights missing data
+# no assumption made on the data
+
+# 4. Cons
+# it does not distort the orginal distribution, but if the number of NA is small, creating an additional category may introduce noise
+
+# 5. When using
+# when a variable has big proportion of missing data
+
+
+# 6. How to drive a complete process on this imputation
+# a. check the proportion of missing 
+X_train["BsmtQual"].isnull().mean()
+
+# b. have a new variable storing the imputed variable, just imputed as 'missing'
+X_train['B_imputed'] = X_train['BsmtQual'].copy().fillna('Missing')
+X_test['B_imputed'] = X_test['BsmtQual'].copy().fillna('Missing')
+
+
+# c. check the distribution change after the imputation, target variable v.s. imputed variable
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+# a plot per category
+X_train[X_train["BsmtQual"] == "TA"]["SalePrice"].plot(kind="kde", ax=ax)
+X_train[X_train["BsmtQual"] == "Gd"]["SalePrice"].plot(kind="kde", ax=ax)
+X_train[X_train["BsmtQual"] == "Ex"]["SalePrice"].plot(kind="kde", ax=ax)
+X_train[X_train["BsmtQual"] == "Missing"]["SalePrice"].plot(kind="kde", ax=ax)
+X_train[X_train["BsmtQual"] == "Fa"]["SalePrice"].plot(kind="kde", ax=ax)
+
+# add the legend
+lines, labels = ax.get_legend_handles_labels()
+labels = ["TA", "Gd", "Ex", "Missing", "Fa"]
+ax.legend(lines, labels, loc="best")
+
+# 7. impute arbitrary values together on your dataset in pandas dataframe
+# first need to get to know the proportion of missing data for each categorical features
+X_train.isnull().mean()
+
+# then create a imputation_dict for variable with high proportion of missing values
+# Capture the imputation values in
+# a dictionary
+
+imputation_dict = {
+    "BsmtQual": "Missing",
+    "FireplaceQu": "Missing",
+}
+
+imputation_dict
+
+# then replace missing data
+X_train.fillna(imputation_dict, inplace=True)
+X_test.fillna(imputation_dict, inplace=True)
+
+# 8. using sklearn imputer to do imputation
+X_train, X_test, y_train, y_test = train_test_split(data[['age','fare']], data['survived'], test_size=.3, random_state=0)
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+
+# first, make a imputer, before it, you need to check the distribution of them and know if they are completely missing at random and less than 5%
+
+#after that, make imputers
+imputer = SimpleImputer(strategy='constant', fill_value='Missing')
+# fit the data with your imputers
+imputer.fit(X_train)
+
+# check statistics_
+imputer.statistics_
+
+
+# transform it to X_train and X_test
+X_train = imputer.transform(X_train)
+X_test = imputer.transform(X_test)
+
+# now, X_train and X_test are ndarray, convert them back to dataframe
+X_train = pd.DataFrame(X_train, columns=imputer.get_feature_names_out(),)
+X_train
+
+X_test = pd.DataFrame(X_test, columns=imputer.get_feature_names_out(),)
+X_test
+
+# 9. Method in pipelining
+# first we need to make lists, indicating which features
+# will be imputed with each method
+
+features_numeric = ["LotFrontage", "MasVnrArea", "GarageYrBlt"]
+features_categoric = ["BsmtQual", "FireplaceQu"]
+
+# then we put the features list and the transformers to
+# the column transformer
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("imputer_numeric", SimpleImputer(strategy="mean"), features_numeric),
+        (
+            "imputer_categoric",
+            SimpleImputer(strategy="constant", fill_value="Missing"),
+            features_categoric,
+        ),
+    ]
+).set_output(transform='pandas')
+
+# now we fit the preprocessor
+preprocessor.fit(X_train)
+
+
+# explore a bit about your transformers
+preprocessor.named_transformers_['categoric_imputer'].statistics_
+preprocessor.fit(X_train)
+# second step, make transforms
+X_train = preprocessor.transform(X_train)
+X_test = preprocessor.transforms(X_test)

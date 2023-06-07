@@ -1,0 +1,93 @@
+# 1. Missing indicator
+
+
+# 2. Scenario
+# the data is not missing at random
+# missing data is predictive
+
+# 3. Pros
+# captures the importance of missing data
+
+# 4. Cons
+# expands the feature space
+
+# 5. When using
+# typically mean/median/mode imputation is done together with adding a variable to capture those observations where the data was missing, thus covering 2 angles: if the data was missing completely at random, this would be contemplated by the mean / median / mode imputation, and if it wasn't, this would be captured by the missing indicator.
+
+
+# 6. How to drive a complete process on this imputation
+# a. check the proportion of missing, it needs to be missing not at random, or at least suspect its randomness, not completely missing at random 
+mean=X_train["BsmtQual"].isnull().mean()
+
+# b. impute the NA and have a new variable as the indicator
+median = X_train["age"].median()
+
+X_train["age"] = X_train["age"].fillna(median)
+X_test["age"] = X_test["age"].fillna(median)
+
+X_train["Age_NA"] = np.where(X_train["age"].isnull(), 1, 0)
+X_test["Age_NA"] = np.where(X_test["age"].isnull(), 1, 0)
+
+
+# c. check the distribution change after the imputation, target variable v.s. imputed variable
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+# a plot per category
+X_train[X_train["BsmtQual"] == "TA"]["SalePrice"].plot(kind="kde", ax=ax)
+X_train[X_train["BsmtQual"] == "Gd"]["SalePrice"].plot(kind="kde", ax=ax)
+X_train[X_train["BsmtQual"] == "Ex"]["SalePrice"].plot(kind="kde", ax=ax)
+X_train[X_train["BsmtQual"] == "Missing"]["SalePrice"].plot(kind="kde", ax=ax)
+X_train[X_train["BsmtQual"] == "Fa"]["SalePrice"].plot(kind="kde", ax=ax)
+
+# add the legend
+lines, labels = ax.get_legend_handles_labels()
+labels = ["TA", "Gd", "Ex", "Missing", "Fa"]
+ax.legend(lines, labels, loc="best")
+
+# 7. impute arbitrary values together on your dataset in pandas dataframe
+# first need to get to know the proportion of missing data for each categorical features
+X_train.isnull().mean()
+
+# you can capture the categorical variables as well as numerical variables
+vars_cat = list(X_train.select_dtypes(exclude="number").columns)
+
+vars_cat
+
+vars_num = list(X_train.select_dtypes(include="number").columns)
+
+vars_num
+
+# Create the imputation dictionary
+
+# median imputation for numeric
+imputation_dict = X_train[vars_num].median().to_dict()
+
+# add mode imputation for categoric
+imputation_dict.update(X_train[vars_cat].mode().iloc[0].to_dict())
+
+# now create indicator names
+indicators = [f"{var}_na" for var in X_train.columns]
+
+indicators
+
+# Add missing indicators to train set
+
+X_train[indicators] = X_train.isna().astype(int)
+
+X_train.head()
+
+# 8. Method in pipelining
+# We impute features with the most frequent value for
+# simplicity to showcase how we can add indicators with
+# the simple Imputer:
+
+imputer = SimpleImputer(
+    strategy="most_frequent",
+    add_indicator=True,
+).set_output(transform="pandas")
+
+X_train = imputer.transform(X_train)
+X_test = imputer.transform(X_test)
+
+

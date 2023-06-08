@@ -1,0 +1,103 @@
+# 1. Reciprocal transformation
+import numpy as np
+import pandas as pd
+
+# for plotting
+import matplotlib.pyplot as plt
+
+# for Q-Q plots
+import scipy.stats as stats
+
+# the dataset for the demo
+from sklearn.datasets import fetch_california_housing
+
+# step 1. Plot histograms to inspect variable distributions
+
+X.hist(bins=30, figsize=(12, 12))
+plt.show()
+
+# step2. Plot histogram and Q-Q plots to explore the variable distribution
+
+
+def diagnostic_plots(df, variable):
+
+    # function to plot a histogram and a Q-Q plot
+    # side by side, for a certain variable
+
+    plt.figure(figsize=(15, 6))
+
+    # histogram
+    plt.subplot(1, 2, 1)
+    df[variable].hist(bins=30)
+    plt.title(f"Histogram of {variable}")
+
+    # q-q plot
+    plt.subplot(1, 2, 2)
+    stats.probplot(df[variable], dist="norm", plot=plt)
+    plt.title(f"Q-Q plot of {variable}")
+
+    plt.show()
+
+# Check function output
+
+# AveOccup = average number of household members (number of people per household)
+# AveOccup = number of members / number of houses
+
+diagnostic_plots(X, "AveOccup")
+
+# step3. make a copy of the dataframe where we will store the modified
+# variables
+
+X_tf = X.copy()
+# apply the reciprocal to a set of variables
+
+X_tf["AveOccup"] = np.reciprocal(X_tf["AveOccup"])
+# use diagnostic plot function to corroborate variable transformation
+
+# AveOccup = number of households per number of people)
+# AveOccup = number of houses / number of people
+
+diagnostic_plots(X_tf, "AveOccup")
+
+# 2. do it in sklearn
+# the dataset for the demo
+from sklearn.datasets import fetch_california_housing
+
+from sklearn.preprocessing import FunctionTransformer
+
+# Plot histogram and Q-Q plots to explore the variable distribution
+
+
+def diagnostic_plots(df, variable):
+
+    # function to plot a histogram and a Q-Q plot
+    # side by side, for a certain variable
+
+    plt.figure(figsize=(15, 6))
+
+    # histogram
+    plt.subplot(1, 2, 1)
+    df[variable].hist(bins=30)
+    plt.title(f"Histogram of {variable}")
+
+    # q-q plot
+    plt.subplot(1, 2, 2)
+    stats.probplot(df[variable], dist="norm", plot=plt)
+    plt.title(f"Q-Q plot of {variable}")
+
+    plt.show()
+
+# make a copy of the dataframe where we will store the modified
+# variables
+
+X_tf = X.copy()
+# start the transformer with NumPy reciprocal as parameter
+
+transformer = FunctionTransformer(func=np.reciprocal)
+# transform subset of dataframe
+
+X_tf["AveOccup"] = transformer.transform(X["AveOccup"])
+# use diagnostic plot function to corroborate variable transformation
+
+diagnostic_plots(X_tf, "AveOccup")
+

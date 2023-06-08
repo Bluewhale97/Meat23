@@ -1,0 +1,139 @@
+# 1. Box-Cox transformation
+import pandas as pd
+
+# for plotting
+import matplotlib.pyplot as plt
+
+# for Q-Q plots
+import scipy.stats as stats
+
+# the dataset for the demo
+from sklearn.datasets import fetch_california_housing
+# load the California House price data from Scikit-learn
+X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+
+# drop lat and lon
+X.drop(labels=["Latitude", "Longitude"], axis=1, inplace=True)
+
+# display top 5 rows
+X.head()
+
+# step1. Plot histogram and Q-Q plots to explore the variable distribution
+
+
+def diagnostic_plots(df, variable):
+
+    # function to plot a histogram and a Q-Q plot
+    # side by side, for a certain variable
+
+    plt.figure(figsize=(15, 6))
+
+    # histogram
+    plt.subplot(1, 2, 1)
+    df[variable].hist(bins=30)
+    plt.title(f"Histogram of {variable}")
+
+    # q-q plot
+    plt.subplot(1, 2, 2)
+    stats.probplot(df[variable], dist="norm", plot=plt)
+    plt.title(f"Q-Q plot of {variable}")
+
+    plt.show()
+
+# step 2. check original distribution (not included in this recipe of book)
+
+diagnostic_plots(X, "MedInc")
+
+# step3. make a copy of the dataframe where we will store the modified variables
+
+X_tf = X.copy()
+# apply the Box-Cox transformation to variable MedInc
+X_tf["MedInc"], param = stats.boxcox(X["MedInc"])
+
+# print the optimal lambda found for MedInc
+print("Optimal λ: ", param)
+
+diagnostic_plots(X_tf, "MedInc")
+
+# 2. do it in sklearn
+# the dataset for the demo
+from sklearn.datasets import fetch_california_housing
+
+# with open-source packages
+from sklearn.preprocessing import PowerTransformer
+
+# load the California House price data from Scikit-learn
+X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+
+# drop lat and lon
+X.drop(labels=["Latitude", "Longitude"], axis=1, inplace=True)
+
+# display top 5 rows
+X.head()
+
+# Plot histograms to inspect variable distributions
+
+X.hist(bins=30, figsize=(12, 12), layout=(3, 3))
+plt.show()
+
+# capture variable names in a list
+
+variables = list(X.columns)
+
+variables
+
+# Make Q-Q plots for all variables
+
+
+def make_qqplot(df):
+
+    plt.figure(figsize=(10, 6), constrained_layout=True)
+
+    for i in range(6):
+
+        # location in figure
+        ax = plt.subplot(2, 3, i + 1)
+
+        # variable to plot
+        var = variables[i]
+
+        # q-q plot
+        stats.probplot((df[var]), dist="norm", plot=plt)
+
+        # add variable name as title
+        ax.set_title(var)
+
+    plt.show()
+
+make_qqplot(X)
+
+
+# initialize the transformer with box-cox
+
+transformer = PowerTransformer(method="box-cox", standardize=False)
+
+transformer.set_output(transform="pandas")
+
+# fit transformer: transformer will learn the lambdas
+
+transformer.fit(X)
+
+# lambdas are stored in a transformer attribute
+
+transformer.lambdas_
+
+# transform data: returns NumPy array
+
+X_tf = transformer.transform(X)
+
+X_tf
+
+# Plot histograms to inspect variable distributions
+
+X_tf.hist(bins=30, figsize=(12, 12), layout=(3, 3))
+plt.show()
+
+# Make Q-Q plots for all variables
+
+make_qqplot(X_tf)
+

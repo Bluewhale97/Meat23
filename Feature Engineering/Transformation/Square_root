@@ -1,0 +1,91 @@
+# 1. Square-root transformation
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import scipy.stats as stats
+# create dataframe
+df = pd.DataFrame()
+
+# draw samples from a poisson distribution
+df["counts1"] = stats.poisson.rvs(mu=3, size=10000)
+df["counts2"] = stats.poisson.rvs(mu=2, size=10000)
+
+# display top rows
+df.head()
+
+# step1. Plot histogram and Q-Q plots to explore the variable distribution
+
+
+def diagnostic_plots(df, variable):
+
+    # function to plot a histogram and a Q-Q plot
+    # side by side, for a certain variable
+
+    plt.figure(figsize=(15, 6))
+
+    # histogram
+    plt.subplot(1, 2, 1)
+    df[variable].hist(bins=30)
+    plt.title(f"Histogram of {variable}")
+
+    # q-q plot
+    plt.subplot(1, 2, 2)
+    stats.probplot(df[variable], dist="norm", plot=plt)
+    plt.title(f"Q-Q plot of {variable}")
+
+    plt.show()
+
+# Check function output
+
+diagnostic_plots(df, "counts1")
+
+# step3. make a copy of the dataframe
+
+df_tf = df.copy()
+# apply square root transformation
+
+df_tf[["counts1", "counts2"]] = np.sqrt(df[["counts1", "counts2"]])
+
+df_tf[["counts1", "counts2"]] = np.round(df_tf[["counts1", "counts2"]], 2)
+diagnostic_plots(df_tf, "counts1")
+
+# 2. do it in sklearn
+# the dataset for the demo
+from sklearn.datasets import fetch_california_housing
+
+from sklearn.preprocessing import FunctionTransformer
+
+# Plot histogram and Q-Q plots to explore the variable distribution
+
+
+def diagnostic_plots(df, variable):
+
+    # function to plot a histogram and a Q-Q plot
+    # side by side, for a certain variable
+
+    plt.figure(figsize=(15, 6))
+
+    # histogram
+    plt.subplot(1, 2, 1)
+    df[variable].hist(bins=30)
+    plt.title(f"Histogram of {variable}")
+
+    # q-q plot
+    plt.subplot(1, 2, 2)
+    stats.probplot(df[variable], dist="norm", plot=plt)
+    plt.title(f"Q-Q plot of {variable}")
+
+    plt.show()
+
+# make a copy of the data
+
+df_tf = df.copy()
+# set up transformer with desired operations
+
+transformer = FunctionTransformer(func=lambda x: np.round(np.sqrt(x), 2))
+# transform slice of dataframe with variables to transform
+
+df_tf = transformer.transform(df[["counts1", "counts2"]])
+# check distribution of transformed variable
+
+diagnostic_plots(df_tf, "counts1")

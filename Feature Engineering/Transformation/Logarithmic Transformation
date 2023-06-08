@@ -1,0 +1,138 @@
+# 1. Logarithmic transformation
+import numpy as np
+import pandas as pd
+
+# for plotting
+import matplotlib.pyplot as plt
+
+# for Q-Q plots
+import scipy.stats as stats
+
+# the dataset for the demo
+from sklearn.datasets import fetch_california_housing
+
+# step 1. Plot histograms to inspect variable distributions
+
+X.hist(bins=30, figsize=(12, 12))
+plt.show()
+
+# step2. Plot histogram and Q-Q plots to explore the variable distribution
+
+
+def diagnostic_plots(df, variable):
+
+    # function to plot a histogram and a Q-Q plot
+    # side by side, for a certain variable
+
+    plt.figure(figsize=(15, 6))
+
+    # histogram
+    plt.subplot(1, 2, 1)
+    df[variable].hist(bins=30)
+    plt.title(f"Histogram of {variable}")
+
+    # q-q plot
+    plt.subplot(1, 2, 2)
+    stats.probplot(df[variable], dist="norm", plot=plt)
+    plt.title(f"Q-Q plot of {variable}")
+
+    plt.show()
+
+
+# Check function output
+
+diagnostic_plots(X, "MedInc")
+
+# step3. make a copy of the dataframe where we will store the modified
+# variables
+
+X_tf = X.copy()
+# list with the variables to transform
+
+variables = ["MedInc", "AveRooms", "AveBedrms", "Population"]
+# apply log to a set of variables
+
+X_tf[variables] = np.log(X[variables])
+# use diagnostic plot function to corroborate variable transformation
+
+diagnostic_plots(X_tf, "MedInc")
+
+
+# step 4. if you want to add a constant to the variables, say because some of their values are 0 or negative,
+# make a copy of original data
+
+X_tf = X.copy()
+# apply log plus a constant to a set of variables
+# we can also use np.log1p()
+
+X_tf[variables] = np.log(X[variables] + 1)
+# use diagnostic plot function to corroborate variable transformation
+
+diagnostic_plots(X_tf, "MedInc")
+
+# 2. do it in sklearn
+# the dataset for the demo
+from sklearn.datasets import fetch_california_housing
+
+from sklearn.preprocessing import FunctionTransformer
+
+# Plot histogram and Q-Q plots to explore the variable distribution
+
+
+def diagnostic_plots(df, variable):
+
+    # function to plot a histogram and a Q-Q plot
+    # side by side, for a certain variable
+
+    plt.figure(figsize=(15, 6))
+
+    # histogram
+    plt.subplot(1, 2, 1)
+    df[variable].hist(bins=30)
+    plt.title(f"Histogram of {variable}")
+
+    # q-q plot
+    plt.subplot(1, 2, 2)
+    stats.probplot(df[variable], dist="norm", plot=plt)
+    plt.title(f"Q-Q plot of {variable}")
+
+    plt.show()
+
+# make a copy of the dataframe where we will store the modified
+# variables
+
+X_tf = X.copy()
+# set up the transformer with NumPy log as parameter
+
+transformer = FunctionTransformer(func=np.log, inverse_func=np.exp)
+# transform subset of dataframe (remember that we
+# made a copy earlier.)
+
+X_tf[variables] = transformer.transform(X[variables])
+# use diagnostic plot function to corroborate variable transformation
+
+diagnostic_plots(X_tf, "MedInc")
+
+# you can inverse it to the original representation as well
+X_tf[variables] = transformer.inverse_transform(X_tf[variables])
+
+diagnostic_plots(X_tf, "MedInc")
+
+# for adding a constant
+# make a copy of the dataframe where we will store the modified
+# variables
+
+X_tf = X.copy()
+
+# set up the transformer
+
+transformer = FunctionTransformer(lambda x: np.log(x + 1))
+
+# transform subset of dataframe
+
+X_tf[variables] = transformer.transform(X[variables])
+
+# use diagnostic plot function to corroborate variable transformation
+
+diagnostic_plots(X_tf, "MedInc")
+

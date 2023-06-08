@@ -1,0 +1,103 @@
+# 1. Arcsin transformation
+import numpy as np
+import pandas as pd
+
+# for plotting
+import matplotlib.pyplot as plt
+
+# for Q-Q plots
+import scipy.stats as stats
+
+# dataset for the demo
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_breast_cancer
+
+#Load dataset
+breast_cancer = load_breast_cancer()
+X = pd.DataFrame(breast_cancer.data, columns=breast_cancer.feature_names)
+y = breast_cancer.target
+
+X.head()
+
+# Separate data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+variables = [
+  'mean compactness',
+  'mean concavity',
+  'mean concave points',
+  'mean fractal dimension',
+  'smoothness error',
+  'compactness error',
+  'concavity error',
+  'concave points error',
+  'symmetry error',
+  'fractal dimension error',
+  'worst symmetry',
+  'worst fractal dimension']
+# make a copy of the data
+
+train_t = X_train.copy()
+test_t = X_test.copy()
+# transform the data
+train_t[variables] = np.arcsin(np.sqrt(X_train[variables]))
+test_t[variables] = np.arcsin(np.sqrt(X_test[variables]))
+# original variables
+X_train[variables].hist(figsize=(20,20), bins=30)
+plt.show()
+
+# transformed variable
+train_t[variables].hist(figsize=(20,20), bins=30)
+plt.show()
+
+# 2. do it in sklearn
+# dataset for the demo
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_breast_cancer
+
+# with open-source packages
+from sklearn.preprocessing import FunctionTransformer
+
+#Load dataset
+breast_cancer = load_breast_cancer()
+X = pd.DataFrame(breast_cancer.data, columns=breast_cancer.feature_names)
+y = breast_cancer.target
+
+X.head()
+
+# Separate data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+variables = [
+  'mean compactness',
+  'mean concavity',
+  'mean concave points',
+  'mean fractal dimension',
+  'smoothness error',
+  'compactness error',
+  'concavity error',
+  'concave points error',
+  'symmetry error',
+  'fractal dimension error',
+  'worst symmetry',
+  'worst fractal dimension']
+# make a copy of the data
+
+train_t = X_train.copy()
+test_t = X_test.copy()
+# set up transformer with desired operations
+
+tf = FunctionTransformer(func=lambda x: np.arcsin(np.sqrt(x)))
+
+tf.set_output(transform="pandas")
+
+# transform the data
+train_t[variables] = tf.transform(X_train[variables])
+test_t[variables] = tf.transform(X_test[variables])
+# original variables
+X_train[variables].hist(figsize=(20,20), bins=30)
+plt.show()
+
+# transformed variable
+train_t[variables].hist(figsize=(20,20), bins=30)
+plt.show()
+

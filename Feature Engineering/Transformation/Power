@@ -1,0 +1,74 @@
+# 1. Power transformation
+import numpy as np
+import pandas as pd
+
+# for plotting
+import matplotlib.pyplot as plt
+
+# for Q-Q plots
+import scipy.stats as stats
+
+# the dataset for the demo
+from sklearn.datasets import fetch_california_housing
+# load the California House price data from Scikit-learn
+X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+
+# display top 5 rows
+X.head()
+
+# step1. Plot histogram and Q-Q plots to explore the variable distribution
+
+
+def diagnostic_plots(df, variable):
+
+    # function to plot a histogram and a Q-Q plot
+    # side by side, for a certain variable
+
+    plt.figure(figsize=(15, 6))
+
+    # histogram
+    plt.subplot(1, 2, 1)
+    df[variable].hist(bins=30)
+    plt.title(f"Histogram of {variable}")
+
+    # q-q plot
+    plt.subplot(1, 2, 2)
+    stats.probplot(df[variable], dist="norm", plot=plt)
+    plt.title(f"Q-Q plot of {variable}")
+
+    plt.show()
+
+# step 2. check original distribution (not included in this recipe of book)
+
+diagnostic_plots(X, "MedInc")
+
+# step3. make a copy of the dataframe where we will store the modified variables
+
+X_tf = X.copy()
+# make a list with the variables to transform
+
+variables = ["MedInc", "Population"]
+# apply a 0.3 exponent power transformation to a set of variables
+
+X_tf[variables] = np.power(X[variables], 0.3)
+# check the distribution of the transformed variable
+
+diagnostic_plots(X_tf, "MedInc")
+
+# 2. do it in sklearn
+variables = ["MedInc", "Population"]
+# make a copy of the dataframe where we will store the modified
+# variables
+
+X_tf = X.copy()
+# set up the transformer with a user defined function, in this
+# case the 0.3 power transformation
+
+transformer = FunctionTransformer(lambda x: np.power(x, 0.3))
+# transform slice of dataframe with indicated variables
+
+X_tf[variables] = transformer.transform(X[variables])
+# visualize the transformation (not in book)
+
+diagnostic_plots(X_tf, "MedInc")
+

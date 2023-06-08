@@ -1,0 +1,183 @@
+# 1. discretisation properties
+# also called binning
+# handle outliers and may improve value pread in skewed variables
+# methods fall into 2 categories, either supervised and unsupervised
+
+# 2. equal width discretisation
+# width = (max value - min value)/N
+
+
+# 3. how to drive the whole process
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+
+from sklearn.preprocessing import KBinsDiscretizer
+
+from feature_engine.discretisation import EqualWidthDiscretiser
+
+# load the numerical variables of the Titanic Dataset
+
+data = pd.read_csv('../titanic.csv',
+                   usecols=['age', 'fare', 'survived'])
+
+data.head()
+
+# Let's separate into train and test set
+
+X_train, X_test, y_train, y_test = train_test_split(
+    data[['age', 'fare']],
+    data['survived'],
+    test_size=0.3,
+    random_state=0)
+
+X_train.shape, X_test.shape
+
+def impute_na(data, variable):
+
+    df = data.copy()
+
+    # random sampling
+    df[variable + '_random'] = df[variable]
+
+    # extract the random sample to fill the na
+    random_sample = X_train[variable].dropna().sample(
+        df[variable].isnull().sum(), random_state=0)
+
+    # pandas needs to have the same index in order to merge datasets
+    random_sample.index = df[df[variable].isnull()].index
+    df.loc[df[variable].isnull(), variable + '_random'] = random_sample
+
+    return df[variable + '_random']
+# replace NA in both train and test sets
+
+X_train['age'] = impute_na(X_train, 'age')
+X_test['age'] = impute_na(X_test, 'age')
+
+X_train['fare'] = impute_na(X_train, 'fare')
+X_test['fare'] = impute_na(X_test, 'fare')
+# let's explore the distribution of age
+
+data[['age', 'fare']].hist(bins=30, figsize=(8,4))
+plt.show()
+
+# let's capture the range of the variable age
+
+age_range = X_train['age'].max() - X_train['age'].min()
+
+age_range/8
+
+# now let's capture the lower and upper boundaries
+
+min_value = int(np.floor( X_train['age'].min()))
+max_value = int(np.ceil( X_train['age'].max()))
+
+# let's round the bin width
+inter_value = int(np.round(age_range / 8))
+
+min_value, max_value, inter_value
+
+# let's capture the interval limits, so we can pass them to the pandas cut 
+# function to generate the bins
+
+intervals = [i for i in range(min_value, max_value+inter_value, inter_value)]
+
+intervals
+
+# let's make labels to label the different bins
+
+labels = ['Bin_' + str(i) for i in range(1, len(intervals))]
+
+labels
+
+# create binned age / discretise age
+
+# create one column with labels
+X_train['Age_disc_labels'] = pd.cut(x=X_train['age'],
+                                    bins=intervals,
+                                    labels=labels,
+                                    include_lowest=True)
+
+# and one with bin boundaries
+X_train['Age_disc'] = pd.cut(x=X_train['age'],
+                             bins=intervals,
+                             include_lowest=True)
+
+X_train.head(10)
+
+X_train.groupby('Age_disc')['age'].count()
+
+X_train.groupby('Age_disc')['age'].count().plot.bar()
+plt.xticks(rotation=45)
+plt.ylabel('Number of observations per bin')
+
+X_test['Age_disc_labels'] = pd.cut(x=X_test['age'],
+                                   bins=intervals,
+                                   labels=labels,
+                                   include_lowest=True)
+
+X_test['Age_disc'] = pd.cut(x=X_test['age'],
+                            bins=intervals,
+                            include_lowest=True)
+
+X_test.head()
+
+# if the distributions in train and test set are similar, we should expect similar propotion of
+# observations in the different intervals in the train and test set
+# let's see that below
+
+t1 = X_train.groupby(['Age_disc'])['age'].count() / len(X_train)
+t2 = X_test.groupby(['Age_disc'])['age'].count() / len(X_test)
+
+tmp = pd.concat([t1, t2], axis=1)
+tmp.columns = ['train', 'test']
+tmp.plot.bar()
+plt.xticks(rotation=45)
+plt.ylabel('Number of observations per bin')
+
+# 4. work it in sklearn
+# Let's separate into train and test set
+
+X_train, X_test, y_train, y_test = train_test_split(
+    data[['age', 'fare']],
+    data['survived'],
+    test_size=0.3,
+    random_state=0)
+
+X_train.shape, X_test.shape
+
+# replace NA in both  train and test sets
+
+X_train['age'] = impute_na(data, 'age')
+X_test['age'] = impute_na(data, 'age')
+
+X_train['fare'] = impute_na(data, 'fare')
+X_test['fare'] = impute_na(data, 'fare')
+
+disc = KBinsDiscretizer(n_bins=8, encode='ordinal', strategy='uniform')
+
+disc.fit(X_train[['age', 'fare']])
+
+disc.bin_edges_
+
+train_t = disc.transform(X_train[['age', 'fare']])
+
+train_t = pd.DataFrame(train_t, columns = ['age', 'fare'])
+
+train_t.head()
+
+test_t = disc.transform(X_test[['age', 'fare']])
+
+test_t = pd.DataFrame(test_t, columns = ['age', 'fare'])
+
+t1 = train_t.groupby(['age'])['age'].count() / len(train_t)
+t2 = test_t.groupby(['age'])['age'].count() / len(test_t)
+
+tmp = pd.concat([t1, t2], axis=1)
+tmp.columns = ['train', 'test']
+tmp.plot.bar()
+plt.xticks(rotation=0)
+plt.ylabel('Number of observations per bin')

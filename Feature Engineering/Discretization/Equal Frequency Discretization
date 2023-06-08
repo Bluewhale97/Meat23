@@ -1,0 +1,169 @@
+# 1. equal frequency discretisation
+# divde the scope of possible values into N bins, each bin carries the same amount of observations
+# useful for skewed variables, we find the interval boundaries by determining the quantiles
+
+
+# 2. how to drive the whole process
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+
+from sklearn.preprocessing import KBinsDiscretizer
+
+from feature_engine.discretisation import EqualFrequencyDiscretiser
+
+# load the numerical variables of the Titanic Dataset
+
+data = pd.read_csv('../titanic.csv',
+                   usecols=['age', 'fare', 'survived'])
+
+data.head()
+
+# Let's separate into train and test set
+
+X_train, X_test, y_train, y_test = train_test_split(
+    data[['age', 'fare']],
+    data['survived'],
+    test_size=0.3,
+    random_state=0)
+
+X_train.shape, X_test.shape
+
+def impute_na(data, variable):
+
+    df = data.copy()
+
+    # random sampling
+    df[variable + '_random'] = df[variable]
+
+    # extract the random sample to fill the na
+    random_sample = X_train[variable].dropna().sample(
+        df[variable].isnull().sum(), random_state=0)
+
+    # pandas needs to have the same index in order to merge datasets
+    random_sample.index = df[df[variable].isnull()].index
+    df.loc[df[variable].isnull(), variable + '_random'] = random_sample
+
+    return df[variable + '_random']
+# replace NA in both train and test sets
+
+X_train['age'] = impute_na(X_train, 'age')
+X_test['age'] = impute_na(X_test, 'age')
+
+X_train['fare'] = impute_na(X_train, 'fare')
+X_test['fare'] = impute_na(X_test, 'fare')
+# let's explore the distribution of age
+
+data[['age', 'fare']].hist(bins=30, figsize=(8,4))
+plt.show()
+
+
+# let's use pandas qcut (quantile cut) and I indicate that
+# we want 10 bins.
+
+# retbins = True indicates that I want to capture the limits
+# of each interval (so I can then use them to cut the test set)
+
+Age_disccretised, intervals = pd.qcut(
+    X_train['age'], 10, labels=None, retbins=True, precision=3, duplicates='raise')
+
+pd.concat([Age_disccretised, X_train['age']], axis=1).head(10)
+
+# roughly the same number of passengers per interval
+
+Age_disccretised.value_counts()
+
+# we can also add labels instead of having the interval boundaries, to the bins, as follows:
+
+labels = ['Q'+str(i) for i in range(1,11)]
+labels
+
+Age_disccretised, intervals = pd.qcut(X_train['age'], 10, labels=labels,
+                                      retbins=True,
+                                      precision=3, duplicates='raise')
+
+Age_disccretised.head()
+
+# to apply the intervals to the test set, we need to extend
+# the limits of the outer bins to -inf and +inf, so that if
+# in the test set, there are smaller or bigger values than the 
+# minimum or maximum values in the train set, they can be 
+# accomodated in the outer intervals. 
+# Otherwise, they will be replaced by NaN.
+
+# Prepend/Append infinities to accommodate outliers
+intervals[0] = float("-inf")
+intervals[len(intervals) - 1] = float("inf")
+
+intervals
+
+# to transform the test set:
+# we use pandas cut method (instead of qcut) and
+# pass the quantile edges calculated in the training set
+
+X_test['Age_disc_label'] = pd.cut(x = X_test['age'], bins=intervals, labels=labels)
+X_test['Age_disc'] = pd.cut(x = X_test['age'], bins=intervals)
+
+X_test.head(10)
+
+X_test['Age_disc_label'].isnull().sum()
+
+# let's check that we have equal frequency (equal number of observations per bin)
+X_test.groupby('Age_disc')['age'].count().plot.bar()
+
+
+# 4. work it in sklearn
+# Let's separate into train and test set
+
+X_train, X_test, y_train, y_test = train_test_split(
+    data[['age', 'fare']],
+    data['survived'],
+    test_size=0.3,
+    random_state=0)
+
+X_train.shape, X_test.shape
+
+# replace NA in both  train and test sets
+
+X_train['age'] = impute_na(data, 'age')
+X_test['age'] = impute_na(data, 'age')
+
+X_train['fare'] = impute_na(data, 'fare')
+X_test['fare'] = impute_na(data, 'fare')
+
+disc = KBinsDiscretizer(n_bins=10, encode='ordinal', strategy='quantile')
+
+disc.fit(X_train[['age', 'fare']])
+
+disc.bin_edges_
+
+train_t = disc.transform(X_train[['age', 'fare']])
+
+train_t = pd.DataFrame(train_t, columns = ['age', 'fare'])
+
+train_t.head()
+
+test_t = disc.transform(X_test[['age', 'fare']])
+
+test_t = pd.DataFrame(test_t, columns = ['age', 'fare'])
+t1 = train_t.groupby(['age'])['age'].count() / len(train_t)
+t2 = test_t.groupby(['age'])['age'].count() / len(test_t)
+
+tmp = pd.concat([t1, t2], axis=1)
+tmp.columns = ['train', 'test']
+tmp.plot.bar()
+plt.xticks(rotation=0)
+plt.ylabel('Number of observations per bin')
+
+t1 = train_t.groupby(['fare'])['fare'].count() / len(train_t)
+t2 = test_t.groupby(['fare'])['fare'].count() / len(test_t)
+
+tmp = pd.concat([t1, t2], axis=1)
+tmp.columns = ['train', 'test']
+tmp.plot.bar()
+plt.xticks(rotation=0)
+plt.ylabel('Number of observations per bin')
+

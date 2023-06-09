@@ -1,0 +1,136 @@
+# 1. Censoring or Capping
+
+# pros: does not remove data
+# cons : 1. distorts the distributions of the variables 2.distorts the relationships among variables
+
+# 3. How to drive this work
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# for Q-Q plots
+import scipy.stats as stats
+
+# boston house dataset for the demo
+
+# load the the Boston House price data
+
+# load the boston dataset from sklearn
+data_url = "http://lib.stat.cmu.edu/datasets/boston"
+boston = pd.read_csv(data_url, sep="\s+", skiprows=22, header=None)
+
+# function to create histogram, Q-Q plot and
+# boxplot. We learned this in section 3 of the course
+
+
+def diagnostic_plots(df, variable):
+    # function takes a dataframe (df) and
+    # the variable of interest as arguments
+
+    # define figure size
+    plt.figure(figsize=(16, 4))
+
+    # histogram
+    plt.subplot(1, 3, 1)
+    sns.histplot(df[variable], bins=30)
+    plt.title('Histogram')
+
+    # Q-Q plot
+    plt.subplot(1, 3, 2)
+    stats.probplot(df[variable], dist="norm", plot=plt)
+    plt.ylabel('Variable quantiles')
+
+    # boxplot
+    plt.subplot(1, 3, 3)
+    sns.boxplot(y=df[variable])
+    plt.title('Boxplot')
+
+    plt.show()
+
+# let's find outliers in RM
+
+diagnostic_plots(boston, 4)# you can see some outliers
+
+# now, lets find the outliers
+def find_skewed_boundaries(df, variable, distance):
+
+    # Let's calculate the boundaries outside which sit the outliers
+    # for skewed distributions
+
+    # distance passed as an argument, gives us the option to
+    # estimate 1.5 times or 3 times the IQR to calculate
+    # the boundaries.
+
+    IQR = df[variable].quantile(0.75) - df[variable].quantile(0.25)
+
+    lower_boundary = df[variable].quantile(0.25) - (IQR * distance)
+    upper_boundary = df[variable].quantile(0.75) + (IQR * distance)
+
+    return upper_boundary, lower_boundary
+
+# find limits for RM
+
+RM_upper_limit, RM_lower_limit = find_skewed_boundaries(boston, 4, 1.5)
+RM_upper_limit, RM_lower_limit
+
+# Now let's replace the outliers by the maximum and minimum limit
+
+boston['RM']= np.where(boston['RM'] > RM_upper_limit, RM_upper_limit,
+                       np.where(boston['RM'] < RM_lower_limit, RM_lower_limit, boston['RM']))
+# Now let's replace the outliers by the maximum and minimum limit
+
+boston['LSTAT']= np.where(boston['LSTAT'] > LSTAT_upper_limit, LSTAT_upper_limit,
+                       np.where(boston['LSTAT'] < LSTAT_lower_limit, LSTAT_lower_limit, boston['LSTAT']))
+# Now let's replace the outliers by the maximum and minimum limit
+
+boston['CRIM']= np.where(boston['CRIM'] > CRIM_upper_limit, CRIM_upper_limit,
+                       np.where(boston['CRIM'] < CRIM_lower_limit, CRIM_lower_limit, boston['CRIM']))
+
+
+# let's explore outliers in the trimmed dataset
+# for RM we see much less outliers as in the original dataset
+
+diagnostic_plots(boston, 'RM')
+
+# 2. Censoring with feature engine
+# load the the Boston House price data
+
+# load the boston dataset from sklearn
+boston_dataset = load_boston()
+
+# create a dataframe with the independent variables
+# I will use only 3 of the total variables for this demo
+
+boston = pd.DataFrame(boston_dataset.data,
+                      columns=boston_dataset.feature_names)[[
+                          'RM', 'LSTAT', 'CRIM'
+                      ]]
+
+# add the target
+boston['MEDV'] = boston_dataset.target
+
+boston.head()
+
+# create the capper
+
+windsoriser = Winsorizer(capping_method='iqr', # choose iqr for IQR rule boundaries or gaussian for mean and std
+                          tail='both', # cap left, right or both tails 
+                          fold=1.5,
+                          variables=['RM', 'LSTAT', 'CRIM'])
+
+windsoriser.fit(boston)
+
+boston_t = windsoriser.transform(boston)
+
+diagnostic_plots(boston, 'RM')
+
+diagnostic_plots(boston_t, 'RM')
+
+
+# we can inspect the minimum caps for each variable
+windsoriser.left_tail_caps_
+
+# we can inspect the maximum caps for each variable
+windsoriser.right_tail_caps_

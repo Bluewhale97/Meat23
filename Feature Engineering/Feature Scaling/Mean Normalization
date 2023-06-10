@@ -1,0 +1,102 @@
+# 1. Mean Normalization
+# x_scaled = (x - x_mean) / ( x_max - x_min)
+
+# 2. how to make it work?
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+# dataset for the demo
+from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+
+# the scaler - for mean normalisation
+from sklearn.preprocessing import StandardScaler, RobustScaler
+
+# load the the Boston House price data
+
+# this is how we load the boston dataset from sklearn
+boston_dataset = load_boston()
+
+# create a dataframe with the independent variables
+data = pd.DataFrame(boston_dataset.data,
+                      columns=boston_dataset.feature_names)
+
+# add target
+data['MEDV'] = boston_dataset.target
+
+data.head()
+
+
+# let's separate the data into training and testing set
+X_train, X_test, y_train, y_test = train_test_split(data.drop('MEDV', axis=1),
+                                                    data['MEDV'],
+                                                    test_size=0.3,
+                                                    random_state=0)
+
+X_train.shape, X_test.shape
+
+# let's first learn the mean from the train set
+
+means = X_train.mean(axis=0)
+means
+
+# let's now learn the min and max values, and the value range 
+# from the train set
+
+ranges = X_train.max(axis=0)-X_train.min(axis=0)
+ranges
+
+# now we are ready to perform mean normalisation:
+
+X_train_scaled = (X_train - means) / ranges
+X_test_scaled = (X_test - means) / ranges
+
+# let's have a look at the original training dataset: mean and min, max values
+# I use np.round to reduce the number of decimals to 1.
+
+np.round(X_train.describe(), 1)
+
+# let's compare the variable distributions before and after scaling
+
+fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12, 5))
+
+# before scaling
+ax1.set_title('Before Scaling')
+sns.kdeplot(X_train['RM'], ax=ax1)
+sns.kdeplot(X_train['LSTAT'], ax=ax1)
+sns.kdeplot(X_train['CRIM'], ax=ax1)
+
+# after scaling
+ax2.set_title('After Mean Normalisation')
+sns.kdeplot(X_train_scaled['RM'], ax=ax2)
+sns.kdeplot(X_train_scaled['LSTAT'], ax=ax2)
+sns.kdeplot(X_train_scaled['CRIM'], ax=ax2)
+plt.show()
+
+#2. use sklearn to do this
+# set up the StandardScaler so that it removes the mean
+# but does not divide by the standard deviation
+scaler_mean = StandardScaler(with_mean=True, with_std=False)
+
+# set up the robustscaler so that it does NOT remove the median
+# but normalises by max()-min(), important for this to set up the
+# quantile range to 0 and 100, which represent the min and max values
+scaler_minmax = RobustScaler(with_centering=False,
+                             with_scaling=True,
+                             quantile_range=(0, 100))
+
+# fit the scalers to the train set, it will learn the parameters
+scaler_mean.fit(X_train)
+scaler_minmax.fit(X_train)
+
+# transform train and test sets
+X_train_scaled = scaler_minmax.transform(scaler_mean.transform(X_train))
+X_test_scaled = scaler_minmax.transform(scaler_mean.transform(X_test))
+# let's transform the returned NumPy arrays to dataframes for the rest of
+# the demo
+
+X_train_scaled = pd.DataFrame(X_train_scaled, columns=X_train.columns)
+X_test_scaled = pd.DataFrame(X_test_scaled, columns=X_test.columns)
+np.round(X_train_scaled.describe(), 1)

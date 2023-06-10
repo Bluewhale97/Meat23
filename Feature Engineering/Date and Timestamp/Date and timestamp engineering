@@ -1,0 +1,67 @@
+# 1. extraction from a date variable
+# week of the year
+# month
+# quarter
+# year
+# day(number)
+# day of the week
+# is weekend
+# time differences in years, months, days, hrs
+
+
+# 1. string like '2013-06-11' to convert to date type
+# use pd.to_datetime()
+data['issue_dt'] = pd.to_datetime(data['date_issued'])
+
+
+# 2. get the week/month/quarter/semester/year/days
+data['issue_dt_week'] = data['issue_dt'].dt.week# week of the year, total 52 weeks
+
+data['issue_dt_month']=data['issue_dt'].dt.month#month of the year, total 12 months
+
+data['issue_dt_quarter'] = data['issue_dt'].dt.quarter# 4 quaters of the year
+
+data['issue_dt_semester'] = np.where(data['issue_dt_quarter'].isin([1,2]), 1, 2)#use quarter to find semester
+
+data['issue_dt_year'] = data['issue_dt'].dt.year#year
+
+# day - numeric from 1-31
+
+data['issue_dt_day'] = data['issue_dt'].dt.day
+
+# day of the week - from 0 to 6
+
+data['issue_dt_dayofweek'] = data['issue_dt'].dt.dayofweek
+
+# day of the week - name
+
+data['issue_dt_dayofweek'] = data['issue_dt'].dt.day_name()
+
+# is it in the weekends?
+data['issue_dt_is_weekend'] = np.where(data['issue_dt_dayofweek'].isin(['Sunday', 'Saturday']), 1,0)
+
+
+# 3. extract the date difference between 2 dates
+# perhaps more interestingly, extract the date difference between 2 dates
+
+data['issue_dt'] - data['last_pymnt_dt']# in days
+
+# same as above capturing just the time difference
+(data['last_pymnt_dt'] - data['issue_dt']).dt.days.head()
+
+# calculate number of months passed between 2 dates
+
+data['months_passed'] = (data['last_pymnt_dt'] - data['issue_dt']) / np.timedelta64(1, 'M')
+data['months_passed'] = np.round(data['months_passed'],0)
+
+data[['last_pymnt_dt', 'issue_dt','months_passed']].head()
+
+# or the time difference to today
+
+(datetime.datetime.today() - data['issue_dt']).head()
+
+# or the time difference to today
+
+(datetime.datetime.today() - data['issue_dt']).head()
+
+(datetime.datetime.today() - data['issue_dt']).unique()

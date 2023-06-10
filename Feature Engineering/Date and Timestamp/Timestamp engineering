@@ -1,0 +1,66 @@
+# 1. datetime v.s. timestamp
+# so datetime does not convert from UTC, but timestamp does
+
+# 2. some operations
+df['hour'] = df['date'].dt.hour
+df['min'] = df['date'].dt.minute
+df['sec'] = df['date'].dt.second
+
+# now let's repeat what we did in cell 3 in 1 command
+
+df[['h','m','s']] = pd.DataFrame([(x.hour, x.minute, x.second) for x in df['time']])
+
+df
+
+# 3. calculating time diff
+# let's create another toy dataframe with 2 timestamp columns
+# and 7 rows each, in the first column the timestamps change monthly,
+# in the second column the timestamps change weekly
+
+date1 = pd.Series(pd.date_range('2012-1-1 12:00:00', periods=7, freq='M'))
+date2 = pd.Series(pd.date_range('2013-3-11 21:45:00', periods=7, freq='W'))
+ 
+df = pd.DataFrame(dict(Start_date = date1, End_date = date2))
+
+df
+
+# let's calculate the time elapsed in seconds
+
+df['diff_seconds'] = df['End_date'] - df['Start_date']
+df['diff_seconds']=df['diff_seconds']/np.timedelta64(1,'s')
+df
+
+# let's calculate the time elapsed in minutes
+
+df['diff_seconds'] = df['End_date'] - df['Start_date']
+df['diff_seconds']=df['diff_seconds']/np.timedelta64(1,'m')
+df
+
+# first, let's create a toy dataframe with some timestamps in different time zones
+
+df = pd.DataFrame()
+
+df['time'] = pd.concat([
+    pd.Series(
+        pd.date_range(
+            start='2014-08-01 09:00', freq='H', periods=3,
+            tz='Europe/Berlin')),
+    pd.Series(
+        pd.date_range(
+            start='2014-08-01 09:00', freq='H', periods=3, tz='US/Central'))
+    ], axis=0)
+
+
+
+# to work with different time zones, first we unify the timezone to the central one
+# setting utc = True
+
+df['time_utc'] = pd.to_datetime(df['time'], utc=True)
+
+# next we change all timestamps to the desired timezone, eg Europe/London
+# in this example
+
+df['time_london'] = df['time_utc'].dt.tz_convert('Europe/London')
+
+
+df

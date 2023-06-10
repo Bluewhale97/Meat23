@@ -1,0 +1,60 @@
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+from feature_engine.outliers import ArbitraryOutlierCapper
+
+# 1. ArbitraryOutlierCapper with feature engine
+# let's find out the maximum Age and maximum Fare in the titanic
+
+data.age.max(), data.fare.max()
+
+capper = ArbitraryOutlierCapper(max_capping_dict={'age': 50, 'fare': 200},
+                                min_capping_dict=None)
+capper.fit(data.fillna(0))
+
+capper.right_tail_caps_
+
+capper.left_tail_caps_
+
+temp = capper.transform(data.fillna(0))
+
+temp.age.max(), temp.fare.max()
+
+# 2. now do minimum capping
+
+capper = ArbitraryOutlierCapper(max_capping_dict=None,
+                                min_capping_dict={
+                                    'age': 10,
+                                    'fare': 100
+                                })
+capper.fit(data.fillna(0))
+
+capper.variables
+
+capper.right_tail_caps_
+
+capper.left_tail_caps_
+
+temp = capper.transform(data.fillna(0))
+
+temp.age.min(), temp.fare.min()
+
+# 3. both ends capping
+capper = ArbitraryOutlierCapper(max_capping_dict={
+    'age': 50, 'fare': 200},
+    min_capping_dict={
+    'age': 10, 'fare': 100})
+
+capper.fit(data.fillna(0))
+
+capper.right_tail_caps_
+
+capper.left_tail_caps_
+
+temp = capper.transform(data.fillna(0))
+
+temp.age.min(), temp.fare.min()
+
+temp.age.max(), temp.fare.max()

@@ -1,0 +1,58 @@
+# 1. How to deal with mixed variables
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+data = pd.read_csv('../sample_s2.csv')
+
+data.head()
+
+# let's inspect the mixed variable
+
+data['open_il_24m'].unique()
+# The variable is mixed: some observations show numbers as values whereas others show one of three codes which meanings are depicted below.
+
+
+# 2. we can use to_numeric()
+# extract numerical part
+data['open_il_24m_numerical'] = pd.to_numeric(data["open_il_24m"],
+                                              errors='coerce',
+                                              downcast='integer')
+# extract categorical part
+data['open_il_24m_categorical'] = np.where(data['open_il_24m_numerical'].isnull(),
+                                           data['open_il_24m'],
+                                           np.nan)
+
+data.head()
+
+# let's inspect those instances of the dataset where numerical is not null
+# when the numerical variable is not null the categorical is null
+# and vice versa
+
+data.dropna(subset = ['open_il_24m_numerical'], axis=0).head()
+
+# 3. other methods
+# let's extract the numerical and categorical part for cabin
+
+data['cabin_num'] = data['cabin'].str.extract('(\d+)') # captures numerical part
+data['cabin_cat'] = data['cabin'].str[0] # captures the first letter
+
+data[['cabin', 'cabin_num', 'cabin_cat']].head()
+
+# let's extract the numerical and categorical part for ticket
+# the variable ticket is extremely dirty, so there is only so much that we
+# can do, but here are some ideas:
+
+# extract the last bit of ticket as number
+data['ticket_num'] = data['ticket'].apply(lambda s: s.split()[-1])
+data['ticket_num'] = pd.to_numeric(data['ticket_num'],
+                                   errors='coerce',
+                                   downcast='integer')
+
+# extract the first part of ticket as category
+data['ticket_cat'] = data['ticket'].apply(lambda s: s.split()[0])
+data['ticket_cat'] = np.where(data['ticket_cat'].str.isdigit(), np.nan,
+                              data['ticket_cat'])
+
+data[['ticket', 'ticket_num', 'ticket_cat']].head(20)

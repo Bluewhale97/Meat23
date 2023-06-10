@@ -1,0 +1,108 @@
+# 1. feature scaling
+# regression coefficients of linear models are directly influenced by the scale of the variable
+# variables with bigger magnitude(value range) dominate over those with smaller magnitude(value range)
+# gradient descent is faster 
+# euclidean distances are sensitive to feature magnitude
+# some algorithms like PCA require the features to be centered at 0
+
+# 2. models affetced by the faeature scale
+# linear and logistic regression
+# NN
+# SVM
+# KNN
+# K Means
+# LDA
+# PCA
+
+# 3. standardization
+# z = (x - x_mean) / std
+
+# 4. how to make it work?
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+# dataset for the demo
+from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+
+# the scaler - for standardisation
+from sklearn.preprocessing import StandardScaler
+
+# load the the Boston House price data
+
+# this is how we load the boston dataset from sklearn
+boston_dataset = load_boston()
+
+# create a dataframe with the independent variables
+data = pd.DataFrame(boston_dataset.data,
+                      columns=boston_dataset.feature_names)
+
+# add target
+data['MEDV'] = boston_dataset.target
+
+data.head()
+
+# let's separate the data into training and testing set
+X_train, X_test, y_train, y_test = train_test_split(data.drop('MEDV', axis=1),
+                                                    data['MEDV'],
+                                                    test_size=0.3,
+                                                    random_state=0)
+
+X_train.shape, X_test.shape
+
+# standardisation: with the StandardScaler from sklearn
+
+# set up the scaler
+scaler = StandardScaler()
+
+# fit the scaler to the train set, it will learn the parameters
+scaler.fit(X_train)
+
+# transform train and test sets
+X_train_scaled = scaler.transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+# the scaler stores the mean of the features, learned from train set
+
+scaler.mean_
+
+# the scaler stores the standard deviation deviation of the features,
+# learned from train set
+
+scaler.scale_
+
+# let's transform the returned NumPy arrays to dataframes for the rest of
+# the demo
+
+X_train_scaled = pd.DataFrame(X_train_scaled, columns=X_train.columns)
+X_test_scaled = pd.DataFrame(X_test_scaled, columns=X_test.columns)
+
+# let's have a look at the original training dataset: mean and standard deviation
+# I use np.round to reduce the number of decimals to 1.
+
+np.round(X_train.describe(), 1)
+
+# let's have a look at the scaled training dataset: mean and standard deviation
+# I use np.round to reduce the number of decimals to 1.
+
+np.round(X_train_scaled.describe(), 1)
+
+# let's compare the variable distributions before and after scaling
+
+fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12, 5))
+
+# before scaling
+ax1.set_title('Before Scaling')
+sns.kdeplot(X_train['RM'], ax=ax1)
+sns.kdeplot(X_train['LSTAT'], ax=ax1)
+sns.kdeplot(X_train['CRIM'], ax=ax1)
+
+# after scaling
+ax2.set_title('After Standard Scaling')
+sns.kdeplot(X_train_scaled['RM'], ax=ax2)
+sns.kdeplot(X_train_scaled['LSTAT'], ax=ax2)
+sns.kdeplot(X_train_scaled['CRIM'], ax=ax2)
+plt.show()
+
+#Note from the above plots how standardisation centered all the distributions at zero, but it preserved their original distribution. The value range is not identical, but it looks more homogeneous across the variables.

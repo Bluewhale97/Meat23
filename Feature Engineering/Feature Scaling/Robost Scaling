@@ -1,0 +1,82 @@
+# 1. Robost Scaling
+# X_scaled = X - X_median / ( X.quantile(0.75) - X.quantile(0.25) )
+
+# 2. how to make it work?
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+# dataset for the demo
+from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+
+# the scaler - for mean normalisation
+from sklearn.preprocessing import StandardScaler, RobustScaler
+
+# load the the Boston House price data
+
+# this is how we load the boston dataset from sklearn
+boston_dataset = load_boston()
+
+# create a dataframe with the independent variables
+data = pd.DataFrame(boston_dataset.data,
+                      columns=boston_dataset.feature_names)
+
+# add target
+data['MEDV'] = boston_dataset.target
+
+data.head()
+
+
+# let's separate the data into training and testing set
+X_train, X_test, y_train, y_test = train_test_split(data.drop('MEDV', axis=1),
+                                                    data['MEDV'],
+                                                    test_size=0.3,
+                                                    random_state=0)
+
+X_train.shape, X_test.shape
+
+# set up the scaler
+scaler = RobustScaler()
+
+# fit the scaler to the train set, it will learn the parameters
+scaler.fit(X_train)
+
+# transform train and test sets
+X_train_scaled = scaler.transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# the scaler stores the median values of the features as learned from train set
+scaler.center_
+
+# the scaler stores the IQR values of the features as learned from train set
+
+scaler.scale_
+
+# the scaler also stores the value range (max -  min)
+
+scaler.data_range_
+
+# let's transform the returned NumPy arrays to dataframes for the rest of
+# the demo
+
+X_train_scaled = pd.DataFrame(X_train_scaled, columns=X_train.columns)
+X_test_scaled = pd.DataFrame(X_test_scaled, columns=X_test.columns)
+
+# let's compare the variable distributions before and after scaling
+
+fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(12, 5))
+
+# before scaling
+ax1.set_title('Before Scaling')
+sns.kdeplot(X_train['RM'], ax=ax1)
+sns.kdeplot(X_train['LSTAT'], ax=ax1)
+sns.kdeplot(X_train['CRIM'], ax=ax1)
+
+# after scaling
+ax2.set_title('After Min-Max Scaling')
+sns.kdeplot(X_train_scaled['RM'], ax=ax2)
+sns.kdeplot(X_train_scaled['LSTAT'], ax=ax2)
+sns.kdeplot(X_train_scaled['CRIM'], ax=ax2)
+plt.show()

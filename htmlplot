@@ -1,0 +1,431 @@
+def plotter(plot_type,data_df,alert_df):
+  '''
+  Purpose: This function creates an image for each PIN given the data and writes out columns to the alert_df.
+  Inputs:
+    - plot_type: string. Options are categorical_ts, text_box, scatter, line, gauge, future(bar).
+    - data_df: a Pandas dataframe. This dataframe contains the data to be used in plotting. Required columns are native_pin. See plot specific functions additional for required columns.
+    - alert_df: a Pandas dataframe. This dataframe contains information about which machines are receving which alerts. Required columns are native_pin and rec_id.
+  Ouput: the orginal alert_df dataframe with an additional column that contains the base64 encoded image.
+  '''
+
+  # check to make sure provide plot_type if available
+  plot_types = ['categorical_ts','text_box','scatter','line','gauge']
+  if plot_type not in plot_types:
+    raise ValueError('plot_type not a correct option')
+  
+  # loop through alert_df and generate image
+  cols_name = data_df.columns
+  if 'native_pin' in cols_name:
+    loop_column = 'native_pin'
+  elif 'mach_id' in cols_name:
+    loop_column = 'mach_id'
+  mach_list =list(data_df[loop_column].unique())
+  alert_df2=alert_df
+  for index_mach, row_mach in alert_df2.iterrows():  
+    mach = row_mach[loop_column]
+    rec_id = row_mach['rec_id']
+    mach_id = row_mach['mach_id']
+    native_pin = row_mach['native_pin']
+    if mach in mach_list:
+      data_mach = data_df.loc[data_df[loop_column] == mach]
+      
+      if plot_type == 'categorical_ts':
+        figure = plot_ts_y_cat(data_mach)
+        
+      if plot_type == 'text_box':
+        figure = plot_text_box(data_mach)
+      
+      if plot_type == 'scatter':
+        figure = plot_scatter(data_mach)
+        
+      if plot_type == 'line':
+        figure = plot_line(data_mach)
+        
+      if plot_type == 'gauge':
+        figure = plot_gauge(data_mach)
+          
+      #Generate Base64 Encoded String
+      os.chdir('/databricks/driver')
+      fig_location = str(native_pin)+'_'+str(rec_id)+'.png'
+      figure.write_image(fig_location)
+      str_base64 = base64_encoded_image(fig_location)
+      alert_df.loc[(alert_df['native_pin'] ==  native_pin),'img'] = str_base64
+      alert_df.loc[(alert_df['native_pin'] ==  native_pin),'image'] = fig_location
+    else:
+      alert_df= alert_df[alert_df.native_pin != native_pin]
+      print("\033[1m Native pin: {} with Rec Id: {} is removed because of no plot data \033[0;0m".format(mach,rec_id))  
+  
+  return alert_df
+
+def plot_ts_y_cat(df = None):
+  '''
+  Purpose: this functions plots timeseries data with a categorical, not continous, y-axis. There are 6 main pieces to this plot.
+    1. x-axis - this is typically either a timestamp or engine hours
+    2. y-axis - this is typically a string such as dtc or regeneration type
+    3. Symbol - this plot uses the text feature in the plot trace function. "text" is used as opposed to markers so that HTML symbols can be used.
+    4. Color_id - this will be the color of the symbol
+    5. secondary_txt - this is text that will appear over the symbol. This can be blank if it is not desired.
+    6. tertiary_txt - this is text that appears below the symbol. This can be blank if it is not desired.
+  Inputs:
+    df: pandas dataframe with the following columns
+      - x_axis
+      - y_axis
+      - color: optional
+      - symbol: optional
+      - symbol_size: optional
+      - secondary_text
+      - secondary_text_size
+      - tertiary_text
+      - tertiary_text_size
+      - tertiary_text_offset
+      - low_y_limit
+  output: plotly figure
+  '''
+  
+  if 'color' not in df.columns:
+    df.loc[:,'color'] = '#000000'
+  if 'symbol' not in df.columns:
+    df.loc[:,'symbol'] = '\u26AB'
+  if 'symbol_size' not in df.columns:
+    df.loc[:,'symbol_size'] = 35
+  if 'secondary_text' not in df.columns:
+    df.loc[:,'secondary_text'] = ''
+  if 'secondary_text_size' not in df.columns:
+    df.loc[:,'secondary_text_size'] = 12
+  if 'tertiary_text' not in df.columns:
+    df.loc[:,'tertiary_text'] = ''
+  if 'tertiary_text_size' not in df.columns:
+    df.loc[:,'tertiary_text_size'] = 8
+  if 'tertiary_text_offset' not in df.columns:
+    df.loc[:,'tertiary_text_offset'] = 0.06
+  if 'low_y_limit' not in df.columns:
+    df.loc[:,'low_y_limit'] = -0.25
+  
+  #create index for plotting
+  #to better plot a categorical y-axis, an index column is created and then overwritten later
+  unq_cats = list(df.y_axis.drop_duplicates())
+  index_df = pd.DataFrame({'y_axis':unq_cats})
+  index_df = index_df.astype('string')
+  index_df.loc[:,'indexes'] = range(0,len(unq_cats))
+  df = df.merge(index_df,on=['y_axis'],how='inner')
+
+  #text and text color can only be set to one value at a time
+  #this function loops through the unique text and color and appends plots
+  #need to loop through the unique combinations of these two parameter
+  unique_format = df[['color','symbol','symbol_size']].drop_duplicates()
+
+  layout = Layout(plot_bgcolor='#F2F2F2')
+  
+  # Use that layout here
+  fig = go.Figure(layout=layout)
+
+  for index_for,row_for in unique_format.iterrows():
+
+    #current color and symbol
+    cur_col = row_for['color']
+    cur_symb = row_for['symbol']
+    cur_symb_sz = row_for['symbol_size']
+
+    #filter data to unique combination of color and symbol
+    data_temp = df.loc[(df.color==cur_col) & (df.symbol == cur_symb) & (df.symbol_size == cur_symb_sz)]
+    #add plots together
+    fig.add_trace(go.Scatter(
+        x=data_temp.x_axis, y=data_temp.indexes,
+        mode="text",
+        text=cur_symb,
+        textposition="middle center",
+        textfont=dict(
+            family="sans serif",
+            size=cur_symb_sz,
+            color=cur_col
+        )
+    ))
+  fig.update_yaxes(range=[list(df.low_y_limit)[0],len(unq_cats)-0.75])
+  
+  #add annotation for additional text options
+  
+  for index_ann, row_ann in df.iterrows():
+    x = row_ann['x_axis']
+    y = row_ann['indexes']
+    txt = row_ann['secondary_text']
+    txt2 = row_ann['tertiary_text']
+    txt_size = row_ann['secondary_text_size']
+    txt2_size = row_ann['tertiary_text_size']
+    offset = row_ann['tertiary_text_offset']
+    fig.add_annotation(x=x, y=y, showarrow=False, text=txt, font=dict(color='black',size=txt_size), xref="x", yref="y")
+    fig.add_annotation(x=x, y=y-offset, showarrow=False, text=txt2, font=dict(color='black',size=txt2_size), xref="x", yref="y",valign='bottom')
+
+  fig.update_layout(showlegend=False)
+
+  indx = df[['indexes','y_axis']]
+  fig.update_yaxes(tickvals=indx.indexes,ticktext=indx[['y_axis']])
+  fig.update_xaxes(dtick = 'D1',tickformat="%Y-%m-%d")
+  
+  return fig
+
+def plot_text_box(df = None):
+  fig = go.Figure()
+
+  if 'text_color' not in df.columns:
+    df['text_color'] = '#000000'
+  if 'text_size' not in df.columns:
+    df['text_size'] = 20
+  if 'background_color' not in df.columns:
+    df['background_color'] = '#367C2B'
+  if 'paper_color' not in df.columns:
+    df['paper_color'] = '#FFFFFF'
+ 
+  fig.add_annotation(x=0.5, y=0.5, showarrow=False, text=list(df.text)[0], font=dict(color=list(df.text_color)[0],size=list(df.text_size)[0]), xref="x", yref="y")
+  fig.update_xaxes(range=[0,1],showgrid=False,ticktext=[''],tickvals=[''])
+  fig.update_yaxes(range=[0,1],showgrid=False,ticktext=[''],tickvals=[''])
+  fig.update_layout(plot_bgcolor = list(df.background_color)[0],paper_bgcolor = list(df.paper_color)[0])
+  
+  return fig
+
+def plot_scatter(df = None):
+  '''
+  Purpose: this functions plots timeseries data with a categorical, not continous, y-axis. There are 6 main pieces to this plot.
+    1. x_axis - variable to plot on x-axis.
+    2. y_axis - variable to plot on y-axis.
+    3. x_axis_label - label for x-axis.
+    4. y_axis_label - label for y-axis.
+    5. symbol - this plot uses the text feature in the plot trace function. "text" is used as opposed to markers so that HTML symbols can be used. This will be defaulted to shaded cirlce.
+    6. symbol_size - this will be the size of the symbol. Defaulted to 8.
+    7. symbol_color - this will be the color of the symbol. Default to black.
+    8. shaded_boxes - this allows the user to create shaded boxes.
+    9. y_axis_secondary = optional parameter used for plotting line on scatter chart
+    10. text_txPos_map_col - optional parameter used if the text and it's position of display needed to be sent to the funtion. It is a map column. For example {16: [1800, 75], 25: [1075, 75]}	where key is the text and value is [x,y] co-ordinates  
+  Inputs:
+    df: pandas dataframe with the following columns
+      - x_axis
+      - y_axis
+      - x_axis_label: should be the same value for the whole column. 
+      - y_axis_label: should be the same value for the whole column.
+      - symbol: optional
+      - symbol_size: optional
+      - symbol_color: optional
+      - shaded_boxes: optional, should be json format like below:
+        {
+          "box1":
+            {
+              "color": "red",
+              "opacity": 0.6,
+              "x_low_limit": "ALL",
+              "x_up_limit": "ALL",
+              "y_low_limit": 30,
+              "y_up_limit": 35
+            },
+          "box2":
+            {
+              "color": "orange",
+              "opacity": 0.6,
+              "x_low_limit": 2060,
+              "x_up_limit": 2070,
+              "y_low_limit": 35,
+              "y_up_limit": 45
+            }
+        }
+       - y_axis_secondary: optional, specify variable to plot as a line, for example: exponential moving average, weighted moving average, etc.
+       
+  output: plotly figure
+  '''
+  if 'symbol_color' not in df.columns:
+    df['symbol_color'] = '#000000'
+  if 'symbol' not in df.columns:
+    df['symbol'] = '\u26AB'
+  if 'symbol_size' not in df.columns:
+    df['symbol_size'] = 8
+
+  unique_format = df[['symbol_color','symbol','symbol_size']].drop_duplicates()
+
+  layout = Layout(plot_bgcolor='#F2F2F2')
+
+  # Use that layout here
+  fig = go.Figure(layout=layout)
+
+  for index_for,row_for in unique_format.iterrows():
+
+    #current color and symbol
+    cur_col = row_for['symbol_color']
+    cur_symb = row_for['symbol']
+    cur_symb_sz = row_for['symbol_size']
+
+    #filter data to unique combination of color and symbol
+    data_temp = df.loc[(df.symbol_color==cur_col) & (df.symbol == cur_symb) & (df.symbol_size == cur_symb_sz)]
+
+    #add plots together
+    fig.add_trace(go.Scatter(
+        x=data_temp.x_axis, y=data_temp.y_axis,
+        mode="text",
+        text=cur_symb,
+        textposition="middle center",
+        textfont=dict(
+            family="sans serif",
+            size=cur_symb_sz,
+            color=cur_col
+        )
+    ))
+  if 'shaded_boxes' in df.columns:
+    shade_box_json = json.loads(list(df.shaded_boxes)[0])
+    for box in shade_box_json:
+      color = shade_box_json.get(box).get('color')
+      opacity = shade_box_json.get(box).get('opacity')
+      x_low_limit = shade_box_json.get(box).get('x_low_limit')
+      x_up_limit = shade_box_json.get(box).get('x_up_limit')
+      y_low_limit = shade_box_json.get(box).get('y_low_limit')
+      y_up_limit = shade_box_json.get(box).get('y_up_limit')
+
+      if str(x_low_limit).upper() == 'ALL':
+        x_low_limit = np.min(df.x_axis)-(np.min(df.x_axis)*0.001)
+      if str(x_up_limit).upper() == 'ALL':
+        x_up_limit = np.max(df.x_axis)+(np.max(df.x_axis)*0.001)
+      if str(y_low_limit).upper() == 'ALL':
+        y_low_limit = np.min(df.y_axis)-(np.min(df.y_axis)*0.001)
+        if (y_low_limit is None) or (y_low_limit > y_up_limit):
+          y_diff = np.absolute(y_up_limit - y_low_limit)
+          y_low_limit = (y_low_limit - y_diff) - 0.001
+      if str(y_up_limit).upper() == 'ALL':
+        y_up_limit = np.max(df.y_axis)+(np.max(df.y_axis)*0.001)
+        if (y_up_limit is None) or (y_up_limit < y_low_limit):
+          y_diff = np.absolute(y_up_limit - y_low_limit)
+          y_up_limit = (y_up_limit + y_diff) + 0.001    
+      fig.add_trace(go.Scatter(x=[x_low_limit,x_low_limit,x_up_limit, x_up_limit], y=[y_low_limit,y_up_limit,y_up_limit,y_low_limit],mode = "none", fill='toself',fillcolor = color,opacity = opacity))
+  
+  if 'y_axis_secondary' in df.columns:
+    fig.add_trace(go.Scatter(x=data_temp.x_axis, y=data_temp.y_axis_secondary,
+                    mode='lines',
+                    line= dict(
+                      color='#000000'
+                    )
+                 )) 
+  if 'text_txPos_map_col1' in df.columns:
+    for key,val in data_temp.text_txPos_map_col1.iloc[0].items():
+      fig.add_annotation(x=val[0], y=val[1],text=str(key),font = {'size':24},showarrow=False)
+  if 'text_txPos_map_col2' in df.columns:
+    for key,val in data_temp.text_txPos_map_col2.iloc[0].items():
+      fig.add_annotation(x=val[0], y=val[1],text=str(key),font = {'size':24},showarrow=False)       
+
+  fig.update_yaxes(title=list(df.y_axis_label)[0])
+  fig.update_xaxes(title=list(df.x_axis_label)[0])
+  fig.update_layout(showlegend=False)
+  
+  return fig
+
+def plot_line(df = None):
+  '''
+  Purpose: this functions plots timeseries data with a categorical, not continous, y-axis. There are 6 main pieces to this plot.
+    1. x_axis - variable to plot on x-axis.
+    2. y_axis - variable to plot on y-axis.
+    3. x_axis_label - label for x-axis.
+    4. y_axis_label - label for y-axis.
+    5. y_axis_secondary = optional parameter used for plotting additional line using same x_axis
+    6. y_axis_tertiary = optional parameter used for plotting additional line using same x_axis
+    7. y_axis_secondary_label - optional label for secondary y-axis.
+    8. y_axis_tertiary_label - optional label for tertiary y-axis.
+    9. y_axis_color - optional color for primary y_axis
+    10. y_axis_secondary_color - optional color for secondary y_axis.
+    11 .y_axis_tertiary_color - optional color for tertiary y_axis.
+  Inputs:
+    df: pandas dataframe with the following columns
+      - x_axis
+      - y_axis
+      - x_axis_label: should be the same value for the whole column. 
+      - y_axis_label: should be the same value for the whole column.
+      - y_axis_secondary: optional
+      - y_axis_tertiary: optional
+      - y_axis_secondary_label - optional
+      - y_axis_tertiary_label - optional
+      - y_axis_color - optional
+      - y_axis_secondary_color - optional
+      - y_axis_tertiary_color - optional
+  output: plotly figure
+  '''
+  layout = Layout(plot_bgcolor='#F2F2F2')
+
+  # Use that layout here
+  fig = go.Figure(layout=layout)
+  mode = 'lines'
+  marker = {'color': 'black'}
+  mode_secondary = 'lines'
+  marker_secondary = {'color': 'red'}
+  mode_tertiary = 'lines'
+  marker_tertiary = {'color': 'blue'}
+  
+  if 'y_axis_color' in df.columns:
+    mode = 'lines'
+    marker = {'color' : list(df.y_axis_color)[0]}
+    
+  if 'y_axis_secondary_color' in df.columns:
+    mode_secondary = 'lines'
+    marker_secondary = {'color' : list(df.y_axis_secondary_color)[0]}
+    
+  if 'y_axis_tertiary_color' in df.columns:
+    mode_tertiary = 'lines'
+    marker_tertiary = {'color' : list(df.y_axis_tertiary_color)[0]}
+
+  fig.add_trace(go.Scatter(
+          x = df.x_axis, y = df.y_axis,
+          mode = mode,
+          marker = marker,
+          name =list(df.y_axis_label)[0])
+      
+      )
+    
+  if 'y_axis_secondary' in df.columns:
+    fig.add_trace(go.Scatter(
+          x = df.x_axis, y = df.y_axis_secondary,
+          mode = mode_secondary,
+          marker = marker_secondary,
+          name =list(df.y_axis_secondary_label)[0])
+                 )
+    
+  if 'y_axis_tertiary' in df.columns:
+    fig.add_trace(go.Scatter(
+          x = df.x_axis, y = df.y_axis_tertiary,
+          mode = mode_tertiary,
+          marker = marker_tertiary,
+          name =list(df.y_axis_tertiary_label)[0])
+                 )
+  #fig.update_yaxes(title=list(df.y_axis_label)[0]) Leaving this out for now, if you had 3 lines it wouldn't make sense, just use names
+  fig.update_xaxes(title=list(df.x_axis_label)[0])
+  fig.update_layout(showlegend=True)
+  
+  return fig
+
+def plot_gauge(df = None):
+  ''' 
+  Purpose:  Create a gauge plot with up to mulitple color ranges.  
+  Required fields:
+  title - string - (val name being plotted) + (date) + (hours) 
+    title example - .withColumn('title',concat_ws(" ",lit('encoder_count'),lit(" @ "),col('recorded_dt_encoder'),
+    lit(' & '),col('enginehours_encoder'),lit('hours')))
+  val - The value being plotted
+  min_g - the minimum value of the gauge plot 0.0
+  max_g - The maxium value of the gauge plot  400.0
+  step_val - A json string  range: [min,max] color: "color"    {"range":[0,10],"color":"red"}|{"range":[10,35],"color":"blue"}|{"range":[35,40],"color":"orange"}
+  
+  '''
+  
+  for index_for,row_for in df.iterrows():
+    cur_title = row_for['title']
+    cur_val = row_for['val']
+    cur_min = row_for['min_g']
+    cur_max = row_for['max_g']
+    cur_step = row_for['step_val']
+    cur_step = cur_step.split("|")
+    list_dicts = []
+    for i in cur_step:
+      list_dicts.append(json.loads(i))
+    fig = go.Figure(go.Indicator(
+    mode = "gauge+number",
+    value = cur_val,
+    title = {'text': cur_title, 'align': 'center',
+    'font': {'size': 10},
+    },
+    domain = {'x': [0, 1], 'y': [0, 1]},
+    gauge = { 'shape' :'angular','axis': {'range': [cur_min, cur_max]},'bar': {'color' : 'black', 'thickness' : 0.5},
+    'steps': list_dicts
+    },
+    ))
+  
+  return fig  

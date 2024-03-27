@@ -386,3 +386,70 @@ def plot_scatter(df = None):
   fig.update_layout(showlegend=False)
   
   return fig
+
+
+
+def plotter(plot_type,data_df,alert_df):
+  '''
+  Purpose: This function creates an image for each PIN given the data and writes out columns to the alert_df.
+  Inputs:
+    - plot_type: string. Options are categorical_ts, text_box, scatter, line, gauge, future(bar).
+    - data_df: a Pandas dataframe. This dataframe contains the data to be used in plotting. Required columns are native_pin. See plot specific functions additional for required columns.
+    - alert_df: a Pandas dataframe. This dataframe contains information about which machines are receving which alerts. Required columns are native_pin and rec_id.
+  Ouput: the orginal alert_df dataframe with an additional column that contains the base64 encoded image.
+  '''
+
+  # check to make sure provide plot_type if available
+  plot_types = ['categorical_ts','text_box','scatter','line','gauge']
+  if plot_type not in plot_types:
+    raise ValueError('plot_type not a correct option')
+  
+  # loop through alert_df and generate image
+  cols_name = data_df.columns
+  if 'native_pin' in cols_name:
+    loop_column = 'native_pin'
+  elif 'mach_id' in cols_name:
+    loop_column = 'mach_id'
+  mach_list =list(data_df[loop_column].unique())
+  alert_df2=alert_df
+  for index_mach, row_mach in alert_df2.iterrows():  
+    mach = row_mach[loop_column]
+    rec_id = row_mach['rec_id']
+    mach_id = row_mach['mach_id']
+    native_pin = row_mach['native_pin']
+    if mach in mach_list:
+      data_mach = data_df.loc[data_df[loop_column] == mach]
+      
+      if plot_type == 'categorical_ts':
+        figure = plot_ts_y_cat(data_mach)
+        
+      if plot_type == 'text_box':
+        figure = plot_text_box(data_mach)
+      
+      if plot_type == 'scatter':
+        figure = plot_scatter(data_mach)
+        
+      if plot_type == 'line':
+        figure = plot_line(data_mach)
+        
+      if plot_type == 'gauge':
+        figure = plot_gauge(data_mach)
+          
+      #Generate HTML Plot
+      os.chdir('/databricks/driver')
+      fig_location = str(native_pin)+'_'+str(rec_id)+'.html'
+      pyo.plot(figure, filename=fig_location, auto_open=False)
+
+      # Read the HTML file as a string
+      with open(fig_location, 'r') as file:
+        html_string = file.read()
+
+      alert_df.loc[(alert_df['native_pin'] ==  native_pin),'img'] = html_string
+      alert_df.loc[(alert_df['native_pin'] ==  native_pin),'image'] = fig_location
+    else:
+      alert_df= alert_df[alert_df.native_pin != native_pin]
+      print("\033[1m Native pin: {} with Rec Id: {} is removed because of no plot data \033[0;0m".format(mach,rec_id))  
+  
+  return alert_df
+
+
